@@ -9,36 +9,36 @@ from dataclasses import dataclass
 import numpy as np
 
 # The four health stages an agent can occupy.
-SUSCEPTIBLE = 0       # healthy, can become exposed
-EXPOSED = 1           # infected but not yet infectious
-INFECTIOUS = 2        # can transmit disease to others
-RECOVERED = 3         # recovered; temporary immunity
-NUM_HEALTH_STATES = 4 # number of SEIR compartments
+SUSCEPTIBLE = 0  # healthy, can become exposed
+EXPOSED = 1  # infected but not yet infectious
+INFECTIOUS = 2  # can transmit disease to others
+RECOVERED = 3  # recovered; temporary immunity
+NUM_HEALTH_STATES = 4  # number of SEIR compartments
 
 # Every simulation event belongs to one of these categories.
-SUN = 0               # day/night swap of home/floor movement rates
-FLOOR_TO_FLOOR = 1    # agent moves between public buildings
-FLOOR_TO_HOME = 2     # agent leaves the floor for home
-HOME_TO_FLOOR = 3     # agent leaves home for the floor
-S_TO_E = 4            # susceptible → exposed contact event
-E_TO_I = 5            # exposed → infectious progression
-I_TO_R = 6            # infectious → recovered progression
-R_TO_S = 7            # recovered → susceptible (waning immunity)
-GOVERNMENT = 8        # policy review / mandate update
-NUM_EVENT_TYPES = 9   # total number of event categories
+SUN = 0  # day/night swap of home/floor movement rates
+FLOOR_TO_FLOOR = 1  # agent moves between public buildings
+FLOOR_TO_HOME = 2  # agent leaves the floor for home
+HOME_TO_FLOOR = 3  # agent leaves home for the floor
+S_TO_E = 4  # susceptible → exposed contact event
+E_TO_I = 5  # exposed → infectious progression
+I_TO_R = 6  # infectious → recovered progression
+R_TO_S = 7  # recovered → susceptible (waning immunity)
+GOVERNMENT = 8  # policy review / mandate update
+NUM_EVENT_TYPES = 9  # total number of event categories
 
 
 @dataclass
 class ClockRates:
     # Rates are measured in events per hour.
-    sun: float = 1.0 / 12.0                 # rate of day/night movement swap
-    floor_to_floor: float = 1.0 / 9.6       # per-agent rate to change buildings
-    floor_to_home: float = 1.0 / 4.5        # per-agent rate to go home from floor
-    home_to_floor: float = 1.0 / 19.5       # per-agent rate to leave home for floor
-    s_to_e: float = 13.0 / 24.0             # per susceptible-on-floor contact attempt rate
-    e_to_i: float = 1.0 / 48.0              # per-exposed incubation completion rate
-    i_to_r: float = 1.0 / 216.0             # per-infectious recovery rate
-    r_to_s: float = 1.0 / 3600.0            # per-recovered immunity-waning rate
+    sun: float = 1.0 / 12.0  # rate of day/night movement swap
+    floor_to_floor: float = 1.0 / 9.6  # per-agent rate to change buildings
+    floor_to_home: float = 1.0 / 4.5  # per-agent rate to go home from floor
+    home_to_floor: float = 1.0 / 19.5  # per-agent rate to leave home for floor
+    s_to_e: float = 13.0 / 24.0  # per susceptible-on-floor contact attempt rate
+    e_to_i: float = 1.0 / 48.0  # per-exposed incubation completion rate
+    i_to_r: float = 1.0 / 216.0  # per-infectious recovery rate
+    r_to_s: float = 1.0 / 3600.0  # per-recovered immunity-waning rate
     government: float = 1.0 / (7.0 * 24.0)  # policy review rate (depends on mandate)
 
 
@@ -57,34 +57,68 @@ class CandyLand:
         if num_infected < 0 or num_infected > population:
             raise ValueError("Initial infected count must be between 0 and population")
 
-        self.time = 0.0                         # scalar: simulated clock time in hours
-        self.num_buildings = num_buildings      # scalar: how many public buildings exist
-        self.population = population            # scalar: how many agents exist
-        self.num_on_floor = 0                   # scalar: count of agents currently on the floor
-        self._num_compliant = population        # scalar: count of agents marked compliant
-        self.mandate_level = 0                  # scalar: government mandate intensity (0–3)
-        self.lambda_logit = 1.0                 # scalar: logit sensitivity for compliance choice
-        self.clocks = ClockRates()              # struct of scalar event rates (events per hour)
-        self.rng = np.random.default_rng(seed)  # random number generator (not agent/building data)
+        self.time = 0.0  # scalar: simulated clock time in hours
+        self.num_buildings = num_buildings  # scalar: how many public buildings exist
+        self.population = population  # scalar: how many agents exist
+        self.num_on_floor = 0  # scalar: count of agents currently on the floor
+        self._num_compliant = population  # scalar: count of agents marked compliant
+        self.mandate_level = 0  # scalar: government mandate intensity (0–3)
+        self.lambda_logit = 1.0  # scalar: logit sensitivity for compliance choice
+        self.clocks = ClockRates()  # struct of scalar event rates (events per hour)
+        self.rng = np.random.default_rng(
+            seed
+        )  # random number generator (not agent/building data)
 
         # Array/list indexed by agent id, unless noted otherwise.
         # on_floor is partitioned in-place: floor agents first, home agents second.
-        self.on_floor = np.arange(population, dtype=int)  # list of agent ids; [:num_on_floor] on floor, rest at home
-        self.incomes = np.empty(population, dtype=int)  # array[agent] -> that agent's income
-        self.financial_burden = np.zeros(population)  # array[agent] -> that agent's income-quartile burden (0–1)
-        self.compliance_prob = np.full(population, 0.5)  # array[agent] -> that agent's continuous compliance probability
-        self.compliant = np.ones(population, dtype=np.uint8)  # array[agent] -> 1 if compliant, 0 if not
-        self.fatigue = np.zeros(population, dtype=int)  # array[agent] -> that agent's compliance fatigue counter
-        self.locations = np.full(population, -1, dtype=int)  # array[agent] -> building id they occupy, or -1 if at home
-        self.health = np.full(population, SUSCEPTIBLE, dtype=np.uint8)  # array[agent] -> SEIR health state
-        self.buildings = [[] for _ in range(num_buildings)]  # list[building] -> list of agent ids currently inside
-        self.building_positions = np.full(population, -1, dtype=int)  # array[agent] -> index of that agent in buildings[location]
-        self.health_positions = np.empty(population, dtype=int)  # array[agent] -> index of that agent in health_groups[health]
-        self.susceptible_floor: list[int] = []  # list of agent ids who are susceptible and on the floor
-        self.susceptible_floor_positions = np.full(population, -1, dtype=int)  # array[agent] -> index in susceptible_floor, or -1
-        self.building_infected = np.zeros(num_buildings, dtype=int)  # array[building] -> count of infectious agents inside
-        self.building_compliance_sum = np.zeros(num_buildings)  # array[building] -> sum of occupants' compliance_prob
-        self.first_time_on_floor = np.zeros(population, dtype=bool)  # array[agent] -> True after first floor visit
+        self.on_floor = np.arange(
+            population, dtype=int
+        )  # list of agent ids; [:num_on_floor] on floor, rest at home
+        self.incomes = np.empty(
+            population, dtype=int
+        )  # array[agent] -> that agent's income
+        self.financial_burden = np.zeros(
+            population
+        )  # array[agent] -> that agent's income-quartile burden (0–1)
+        self.compliance_prob = np.full(
+            population, 0.5
+        )  # array[agent] -> that agent's continuous compliance probability
+        self.compliant = np.ones(
+            population, dtype=np.uint8
+        )  # array[agent] -> 1 if compliant, 0 if not
+        self.fatigue = np.zeros(
+            population, dtype=int
+        )  # array[agent] -> that agent's compliance fatigue counter
+        self.locations = np.full(
+            population, -1, dtype=int
+        )  # array[agent] -> building id they occupy, or -1 if at home
+        self.health = np.full(
+            population, SUSCEPTIBLE, dtype=np.uint8
+        )  # array[agent] -> SEIR health state
+        self.buildings = [
+            [] for _ in range(num_buildings)
+        ]  # list[building] -> list of agent ids currently inside
+        self.building_positions = np.full(
+            population, -1, dtype=int
+        )  # array[agent] -> index of that agent in buildings[location]
+        self.health_positions = np.empty(
+            population, dtype=int
+        )  # array[agent] -> index of that agent in health_groups[health]
+        self.susceptible_floor: list[int] = (
+            []
+        )  # list of agent ids who are susceptible and on the floor
+        self.susceptible_floor_positions = np.full(
+            population, -1, dtype=int
+        )  # array[agent] -> index in susceptible_floor, or -1
+        self.building_infected = np.zeros(
+            num_buildings, dtype=int
+        )  # array[building] -> count of infectious agents inside
+        self.building_compliance_sum = np.zeros(
+            num_buildings
+        )  # array[building] -> sum of occupants' compliance_prob
+        self.first_time_on_floor = np.zeros(
+            population, dtype=bool
+        )  # array[agent] -> True after first floor visit
 
         self._initialize_incomes(avg_income, std_income)
 
@@ -223,7 +257,8 @@ class CandyLand:
             tolerance = 1e-8 * max(1.0, abs(compliance_sum))
             if (
                 infected != self.building_infected[building]
-                or abs(compliance_sum - self.building_compliance_sum[building]) > tolerance
+                or abs(compliance_sum - self.building_compliance_sum[building])
+                > tolerance
             ):
                 raise RuntimeError("Building aggregate invariant failed")
         if floor_total != self.num_on_floor:
@@ -379,7 +414,9 @@ class CandyLand:
 
         # Peer conditions exclude the agent who is currently deciding.
         infected = self.building_infected[building] - (self.health[agent] == INFECTIOUS)
-        compliance = self.building_compliance_sum[building] - self.compliance_prob[agent]
+        compliance = (
+            self.building_compliance_sum[building] - self.compliance_prob[agent]
+        )
         return infected / num_others, compliance / num_others
 
     # Calculate the benefits of complying and not complying for one agent.
@@ -388,7 +425,9 @@ class CandyLand:
         global_prevalence = len(self.health_groups[INFECTIOUS]) / self.population
         risk = global_prevalence * local_exposure + self.mandate_level
         utility_c = (
-            math.log1p(risk) + math.log1p(peer_compliance) - self.financial_burden[agent]
+            math.log1p(risk)
+            + math.log1p(peer_compliance)
+            - self.financial_burden[agent]
         )
         utility_n = self.fatigue[agent] - risk - peer_compliance
         return utility_c, utility_n
@@ -450,15 +489,22 @@ class CandyLand:
         building = self._random_index(self.num_buildings)
         self._add_to_building(agent, building)
 
-        if not self.first_time_on_floor[agent]:
-            # First visit to the floor: start noncompliant.
-            if self.compliant[agent]:
-                self.compliant[agent] = False
-                self._num_compliant -= 1
-            self.first_time_on_floor[agent] = True
-        else:
+        # if not self.first_time_on_floor[agent]:
+        #     # First visit to the floor: start noncompliant.
+        #     if self.compliant[agent]:
+        #         self.compliant[agent] = False
+        #         self._num_compliant -= 1
+        #     self.first_time_on_floor[agent] = True
+        # else:
+        #     # Returning to the public floor triggers a compliance decision.
+        #     self._update_compliance(agent, building)
+
+        if self.first_time_on_floor[agent]:
             # Returning to the public floor triggers a compliance decision.
             self._update_compliance(agent, building)
+        else:
+            # First visit to the floor: compliance stays the same
+            self.first_time_on_floor[agent] = True
 
     def floor_to_home(self) -> None:
         agent_index = self._random_index(self.num_on_floor)
@@ -501,24 +547,30 @@ class CandyLand:
         if self.compliant[agent]:
             # Protective behavior halves the exposure exponent.
             exponent /= 2.0
-        exposure_probability = 1.0 - math.exp(-exponent * 7.0)
+        exposure_probability = 1.0 - math.exp(-exponent)
         if self._uniform_probability() < exposure_probability:
             self._change_health(agent, EXPOSED)
 
     def e_to_i(self) -> None:
         if self.health_groups[EXPOSED]:
             # An exposed agent finishes incubation and becomes infectious.
-            self._change_health(self._random_member(self.health_groups[EXPOSED]), INFECTIOUS)
+            self._change_health(
+                self._random_member(self.health_groups[EXPOSED]), INFECTIOUS
+            )
 
     def i_to_r(self) -> None:
         if self.health_groups[INFECTIOUS]:
             # An infectious agent finishes the infectious period and recovers.
-            self._change_health(self._random_member(self.health_groups[INFECTIOUS]), RECOVERED)
+            self._change_health(
+                self._random_member(self.health_groups[INFECTIOUS]), RECOVERED
+            )
 
     def r_to_s(self) -> None:
         if self.health_groups[RECOVERED]:
             # Immunity wanes and the recovered agent becomes susceptible again.
-            self._change_health(self._random_member(self.health_groups[RECOVERED]), SUSCEPTIBLE)
+            self._change_health(
+                self._random_member(self.health_groups[RECOVERED]), SUSCEPTIBLE
+            )
 
     # ----- Government policy event -----
 
@@ -574,12 +626,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--avg-income", type=float, default=100_000.0)
     parser.add_argument("--std-income", type=float, default=10_000.0)
     parser.add_argument("--num-infected", type=int, default=60_000)
-    parser.add_argument("--duration", type=float, default=1_008.0,
-                        help="Simulation length in hours")
+    parser.add_argument(
+        "--duration", type=float, default=1_008.0, help="Simulation length in hours"
+    )
     parser.add_argument("--sample-interval", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=1)
-    parser.add_argument("--output-file", default="simulation.csv",
-                        help='CSV path, or "none" to skip writing')
+    parser.add_argument(
+        "--output-file",
+        default="simulation.csv",
+        help='CSV path, or "none" to skip writing',
+    )
     return parser.parse_args(argv)
 
 
