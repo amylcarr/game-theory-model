@@ -9,6 +9,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 from simulation import CandyLand
+from simulation_sun_clock import CandyLand as SunClockCandyLand
 
 PROJECT_DIR = Path(__file__).resolve().parent
 DEFAULT_PLOT = PROJECT_DIR / "simulation_plots.png"
@@ -26,7 +27,12 @@ def run_simulation(
     seed: int,
     output_file: Path,
 ) -> None:
-    model = CandyLand(
+    model_class = (
+        SunClockCandyLand
+        if output_file.name == "simulation_sun_clock.csv"
+        else CandyLand
+    )
+    model_arguments = (
         num_buildings,
         population,
         avg_income,
@@ -34,6 +40,12 @@ def run_simulation(
         num_infected,
         seed,
     )
+    if model_class is SunClockCandyLand:
+        model = model_class(
+            *model_arguments, PROJECT_DIR / "sun_clock_leave_probability.csv"
+        )
+    else:
+        model = model_class(*model_arguments)
     start = time.perf_counter()
     model.run(duration, sample_interval, str(output_file))
     stop = time.perf_counter()
@@ -144,7 +156,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run and plot the Candy Land epidemic simulation"
     )
-    parser.add_argument("csv", type=Path)
+    parser.add_argument("--csv", type=Path)
     parser.add_argument("--num-buildings", type=int, default=10_000)
     parser.add_argument("--population", type=int, default=1_000_000)
     parser.add_argument("--avg-income", type=float, default=100_000)
