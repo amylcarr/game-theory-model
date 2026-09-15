@@ -1,10 +1,10 @@
-Date ran: 2026-09-14 10:04:07
+Date ran: 2026-09-15 10:27:27
 
 Parameters:
-  --population      7700
+  --population      7000
   --num-buildings   100
   --num-infected    600
-  --duration        24.0
+  --duration        168.0
   --seed            1
   --avg-income      100000
   --std-income      10000
