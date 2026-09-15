@@ -352,7 +352,7 @@ If you change how agents move or change health, update these indexes the same wa
 Written by `CandyLand._record_state`:
 
 ```text
-time,s,e,i,r,mandate,complying
+time,s,e,i,r,mandate,away_percent
 ```
 
 `plotting.py` reads this file, checks population conservation, prints peak stats, and draws a 2×3 figure (S, E, I, R, mandate, complying).
