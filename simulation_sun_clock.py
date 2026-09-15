@@ -170,12 +170,25 @@ class CandyLand:
         self.first_time_on_floor = np.zeros(
             population, dtype=bool
         )  # array[agent] -> True after first floor visit
-
+        self.household_id = np.full(
+                    population, -1, dtype=int
+        ) # array[agent] -> household id
+        self.households : list[list[int]] = [] # list[household_id] -> list of members within house
+        
+        self._initialize_households()
         self._initialize_incomes(avg_income, std_income)
 
         # Start with everyone susceptible, then infect a random initial subset.
         self.health[:num_infected] = INFECTIOUS
         self.rng.shuffle(self.health)
+
+        # Seed initial household propagation
+        for agent in range(self.population):
+            if self.health[agent] == INFECTIOUS:
+                for household_member in self.households[self.household_id[agent]]:
+                    if household_member != agent and self.health[household_member] == SUSCEPTIBLE:
+                        self.health[household_member] = EXPOSED
+        
 
         # list[health_state] -> list of agent ids currently in that SEIR state
         self.health_groups: list[list[int]] = [[] for _ in range(NUM_HEALTH_STATES)]
@@ -334,6 +347,41 @@ class CandyLand:
                 raise RuntimeError("Susceptible-floor membership invariant failed")
 
     # ----- Population initialization and random selection -----
+
+    def _initialize_households(self) -> None:
+        remaining = self.population
+        next_agent = 0
+    
+        household_size_probs = {
+            1: 0.289,
+            2: 0.342,
+            3: 0.153,
+            4: 0.123,
+            5: 0.057,
+            6: 0.022,
+            7: 0.015
+        }
+    
+        total = sum(household_size_probs.values())
+        household_size_probs = {
+            size: p / total for size, p in household_size_probs.items()
+        }
+    
+        while next_agent < self.population:
+            size = self.rng.choice(
+                list(household_size_probs.keys()),
+                p=list(household_size_probs.values()),
+            )
+    
+            size - min(size, self.population - next_agent)
+    
+            household_members = list(range(next_agent, next_agent  + size))
+            self.households.append(household_members)
+    
+            for agent in household_members:
+                self.household_id[agent] = len(self.households) - 1
+    
+            next_agent += size
 
     def _initialize_incomes(self, avg_income: float, std_income: float) -> None:
         samples = self.rng.normal(avg_income, std_income, size=self.population)

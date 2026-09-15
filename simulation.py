@@ -297,19 +297,6 @@ class CandyLand:
     # ----- Population initialization and random selection -----
 
     def _initialize_households(self) -> None:
-        """
-        Look at house_size_distribution i.e.
-        {
-            1: 28.9,
-            2: 34.2,
-            3: 15.3,
-            4: 12.3,
-            5: 5.7,
-            6: 2.2,
-            7: 1.5
-        }
-        Want to assign so that we have roughly x% of each household size n
-        """
         remaining = self.population
         next_agent = 0
 
@@ -343,8 +330,6 @@ class CandyLand:
                 self.household_id[agent] = len(self.households) - 1
 
             next_agent += size
-
-
             
     def _initialize_incomes(self, avg_income: float, std_income: float) -> None:
         samples = self.rng.normal(avg_income, std_income, size=self.population)
