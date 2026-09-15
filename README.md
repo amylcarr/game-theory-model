@@ -157,7 +157,7 @@ You can pass options to `plotting.py`. Examples:
 
 ```bash
 # Smaller / faster test run
-python3 plotting.py --population 10000 --num-buildings 100 --num-infected 600 --duration 168
+python3 plotting.py --csv data.csv --population 10000 --num-buildings 100 --num-infected 600 --duration 168
 
 # Change the random seed
 python3 plotting.py --seed 42
@@ -168,6 +168,7 @@ Common options:
 
 | Option              | Meaning                            | Default                      |
 | ------------------- | ---------------------------------- | ---------------------------- |
+| `--csv`             | Name of csv file containing data   | `simulation.csv`             |
 | `--population`      | Number of people                   | `1000000`                    |
 | `--num-buildings`   | Number of buildings                | `10000`                      |
 | `--num-infected`    | Starting infected people           | `60000`                      |
@@ -245,6 +246,7 @@ Anyone cloning the repo can then open that folder under `saved_simulation_plots/
 | File / folder             | Role                                                                  |
 | ------------------------- | --------------------------------------------------------------------- |
 | `simulation.py`           | Core epidemic model (`CandyLand` class), event loop, and CLI          |
+| `sun_clock_simulation.py` | Epidemic model (`CandyLand` class) with ATUS-derived sun clock, event loop, and CLI          |
 | `plotting.py`             | Runs the model, writes a description file, and plots the CSV          |
 | `requirements.txt`        | Python dependencies (`numpy`, `matplotlib`)                           |
 | `saved_simulation_plots/` | Optional checked-in runs (plots + notes); created when you save a run |
