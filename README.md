@@ -296,6 +296,11 @@ Progression events: `S→E` (contact), `E→I` (incubation), `I→R` (recovery),
 
 Infection only happens in public buildings: a susceptible agent on the floor is paired with a random co-occupant; if that contact is infectious, exposure probability depends on global prevalence, local infected fraction, and whether the susceptible agent is complying (compliance halves the exposure exponent).
 
+### Households
+
+- Each agent is assigned a `household_id` based on US household distribution data, these are initialized upon construction of the model with the function `_initialize_households()`
+- If a member of a household becomes infectious, all members of the corresponding household become exposed.
+  
 ### Movement and locations
 
 - Agents are either **at home** (`locations[agent] == -1`) or in one of `num_buildings` public buildings.
