@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 from simulation import CandyLand
 
 PROJECT_DIR = Path(__file__).resolve().parent
-DEFAULT_CSV = PROJECT_DIR / "simulation.csv"
 DEFAULT_PLOT = PROJECT_DIR / "simulation_plots.png"
 DEFAULT_DESCRIPTION = PROJECT_DIR / "simulation_description.txt"
 
@@ -145,6 +144,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run and plot the Candy Land epidemic simulation"
     )
+    parser.add_argument("csv", type=Path)
     parser.add_argument("--num-buildings", type=int, default=10_000)
     parser.add_argument("--population", type=int, default=1_000_000)
     parser.add_argument("--avg-income", type=float, default=100_000)
@@ -153,7 +153,6 @@ def main() -> None:
     parser.add_argument("--duration", type=float, default=1_008)
     parser.add_argument("--sample-interval", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=1)
-    parser.add_argument("--csv", type=Path, default=DEFAULT_CSV)
     parser.add_argument("--plot", type=Path, default=DEFAULT_PLOT)
     parser.add_argument("--description", type=Path, default=DEFAULT_DESCRIPTION)
     args = parser.parse_args()
