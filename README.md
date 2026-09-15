@@ -177,7 +177,6 @@ Common options:
 | `--seed`            | Random seed (same seed → same run) | `1`                          |
 | `--avg-income`      | Mean income                        | `100000`                     |
 | `--std-income`      | Income standard deviation          | `10000`                      |
-| `--csv`             | Path for simulation CSV output     | `simulation.csv`             |
 | `--plot`            | Path for plot image                | `simulation_plots.png`       |
 | `--description`     | Path for description file          | `simulation_description.txt` |
 
