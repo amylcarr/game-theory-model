@@ -177,7 +177,6 @@ Common options:
 | `--seed`            | Random seed (same seed → same run) | `1`                          |
 | `--avg-income`      | Mean income                        | `100000`                     |
 | `--std-income`      | Income standard deviation          | `10000`                      |
-| `--csv`             | Path for simulation CSV output     | `simulation.csv`             |
 | `--plot`            | Path for plot image                | `simulation_plots.png`       |
 | `--description`     | Path for description file          | `simulation_description.txt` |
 
@@ -297,6 +296,11 @@ Progression events: `S→E` (contact), `E→I` (incubation), `I→R` (recovery),
 
 Infection only happens in public buildings: a susceptible agent on the floor is paired with a random co-occupant; if that contact is infectious, exposure probability depends on global prevalence, local infected fraction, and whether the susceptible agent is complying (compliance halves the exposure exponent).
 
+### Households
+
+- Each agent is assigned a `household_id` based on US household distribution data, these are initialized upon construction of the model with the function `_initialize_households()`
+- If a member of a household becomes infectious, all members of the corresponding household become exposed.
+  
 ### Movement and locations
 
 - Agents are either **at home** (`locations[agent] == -1`) or in one of `num_buildings` public buildings.
@@ -353,7 +357,7 @@ If you change how agents move or change health, update these indexes the same wa
 Written by `CandyLand._record_state`:
 
 ```text
-time,s,e,i,r,mandate,complying
+time,s,e,i,r,mandate,away_percent
 ```
 
 `plotting.py` reads this file, checks population conservation, prints peak stats, and draws a 2×3 figure (S, E, I, R, mandate, complying).
