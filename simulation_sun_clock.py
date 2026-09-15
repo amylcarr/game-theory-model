@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import math
 import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -31,7 +33,7 @@ NUM_EVENT_TYPES = 9  # total number of event categories
 @dataclass
 class ClockRates:
     # Rates are measured in events per hour.
-    sun: float = 1.0 / 12.0  # rate of day/night movement swap
+    sun: float = 1.0  # rate of day/night movement swap
     floor_to_floor: float = 1.0 / 9.6  # per-agent rate to change buildings
     floor_to_home: float = 1.0 / 4.5  # per-agent rate to go home from floor
     home_to_floor: float = 1.0 / 19.5  # per-agent rate to leave home for floor
@@ -40,6 +42,44 @@ class ClockRates:
     i_to_r: float = 1.0 / 216.0  # per-infectious recovery rate
     r_to_s: float = 1.0 / 3600.0  # per-recovered immunity-waning rate
     government: float = 1.0 / (7.0 * 24.0)  # policy review rate (depends on mandate)
+
+
+class DailyRateCurve:
+    """Hourly continuous-time event-rate lookup."""
+
+    def __init__(self, rates_by_hour: dict[int, float]):
+        if set(rates_by_hour) != set(range(24)):
+            raise ValueError("Rate lookup must have exactly keys 0..23")
+        if any(
+            not math.isfinite(rate) or rate < 0.0 for rate in rates_by_hour.values()
+        ):
+            raise ValueError("Rate lookup must contain finite, nonnegative rates")
+        self._rates = rates_by_hour
+
+    def rate_at(self, time: float) -> float:
+        return self._rates[int(time) % 24]
+
+    def __repr__(self) -> str:
+        return f"DiurnalRateCurve(mean={sum(self._rates.values())/24:.4f}/hr)"
+
+
+def load_sun_clock_curves(path: str | Path) -> tuple[DailyRateCurve, DailyRateCurve]:
+    with open(path, newline="", encoding="utf-8") as input_file:
+        rows = list(csv.DictReader(input_file))
+
+    if len(rows) != 24:
+        raise ValueError(f"Sun Clock file must contain 24 hourly rows: {path}")
+
+    home_to_floor = {}
+    floor_to_home = {}
+    for row in rows:
+        hour = int(row["hour"])
+        if hour in home_to_floor:
+            raise ValueError(f"Duplicate hour {hour} in Sun Clock file: {path}")
+        home_to_floor[hour] = float(row["home_to_floor_rate"])
+        floor_to_home[hour] = float(row["floor_to_home_rate"])
+
+    return DailyRateCurve(home_to_floor), DailyRateCurve(floor_to_home)
 
 
 class CandyLand:
@@ -51,6 +91,7 @@ class CandyLand:
         std_income: float,
         num_infected: int,
         seed: int,
+        sun_clock_file: str | None = None,
     ):
         if num_buildings <= 0 or population <= 0:
             raise ValueError("Buildings and population must be positive")
@@ -64,7 +105,17 @@ class CandyLand:
         self._num_compliant = population  # scalar: count of agents marked compliant
         self.mandate_level = 0  # scalar: government mandate intensity (0–3)
         self.lambda_logit = 1.0  # scalar: logit sensitivity for compliance choice
+        clock_path = (
+            Path(sun_clock_file)
+            if sun_clock_file is not None
+            else Path(__file__).with_name("sun_clock_leave_probability.csv")
+        )
+        self.home_to_floor_curve, self.floor_to_home_curve = load_sun_clock_curves(
+            clock_path
+        )
         self.clocks = ClockRates()  # struct of scalar event rates (events per hour)
+        self.clocks.home_to_floor = self.home_to_floor_curve.rate_at(0.0)
+        self.clocks.floor_to_home = self.floor_to_home_curve.rate_at(0.0)
         self.rng = np.random.default_rng(
             seed
         )  # random number generator (not agent/building data)
@@ -174,7 +225,7 @@ class CandyLand:
         output = None
         if write_output:
             output = open(output_file, "w", encoding="utf-8")
-            output.write("time,s,e,i,r,mandate,complying,away_percent\n")
+            output.write("time,s,e,i,r,mandate,complying,on_floor,away_percent\n")
             self._record_state(output, 0.0)
 
         next_sample = sample_interval
@@ -462,11 +513,15 @@ class CandyLand:
 
     # ----- Movement events -----
 
+    # def sun(self) -> None:
+    #     self.clocks.floor_to_home, self.clocks.home_to_floor = (
+    #         self.clocks.home_to_floor,
+    #         self.clocks.floor_to_home,
+    #     )
+
     def sun(self) -> None:
-        self.clocks.floor_to_home, self.clocks.home_to_floor = (
-            self.clocks.home_to_floor,
-            self.clocks.floor_to_home,
-        )
+        self.clocks.home_to_floor = self.home_to_floor_curve.rate_at(self.time)
+        self.clocks.floor_to_home = self.floor_to_home_curve.rate_at(self.time)
 
     def floor_to_floor(self) -> None:
         agent = int(self.on_floor[self._random_index(self.num_on_floor)])
@@ -619,7 +674,7 @@ class CandyLand:
         output.write(
             f"{sample_time:.10g},{counts[SUSCEPTIBLE]},{counts[EXPOSED]},"
             f"{counts[INFECTIOUS]},{counts[RECOVERED]},"
-            f"{self.mandate_level},{self._num_compliant},"
+            f"{self.mandate_level},{self._num_compliant},{self.num_on_floor},"
             f"{100.0 * self.num_on_floor / self.population:.10g}\n"
         )
 
@@ -636,6 +691,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--sample-interval", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument(
+        "--sun-clock-file",
+        default=None,
+        help="Hourly Sun Clock CSV; defaults to sun_clock_leave_probability.csv",
+    )
     parser.add_argument(
         "--output-file",
         default="simulation.csv",
@@ -655,6 +715,7 @@ def main(argv: list[str] | None = None) -> int:
             args.std_income,
             args.num_infected,
             args.seed,
+            args.sun_clock_file,
         )
 
         start = time.perf_counter()
@@ -669,6 +730,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{counts[INFECTIOUS]},{counts[RECOVERED]}"
         )
         print(f"final_complying={model.num_compliant()}")
+        print(f"final_num_on_floor={model.num_on_floor}")
         return 0
     except Exception as error:
         print(f"Error: {error}", file=sys.stderr)

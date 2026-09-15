@@ -1,0 +1,14 @@
+Date ran: 2026-09-14 09:28:04
+
+Parameters:
+  --population      7700
+  --num-buildings   100
+  --num-infected    600
+  --duration        168.0
+  --seed            1
+  --avg-income      100000
+  --std-income      10000
+  --sample-interval 1.0
+
+Comments:
+  (Write your notes here. What did you change? What did you notice?)

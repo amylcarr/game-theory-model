@@ -42,9 +42,7 @@ def run_simulation(
     counts = model.health_counts()
 
     print(f"simulation_seconds={stop - start:.6f}")
-    print(
-        f"final_counts={counts[0]},{counts[1]},{counts[2]},{counts[3]}"
-    )
+    print(f"final_counts={counts[0]},{counts[1]},{counts[2]},{counts[3]}")
     print(f"final_complying={model.num_compliant()}")
 
 
@@ -57,12 +55,14 @@ def read_history(csv_file: Path) -> dict[str, list]:
         "r": [],
         "mandate": [],
         "complying": [],
+        "away_percent": [],
     }
     with csv_file.open(newline="") as file:
         for row in csv.DictReader(file):
             history["time"].append(float(row["time"]))
             for key in ("s", "e", "i", "r", "mandate", "complying"):
                 history[key].append(int(row[key]))
+            history["away_percent"].append(float(row["away_percent"]))
     return history
 
 
@@ -77,6 +77,7 @@ def analyze_history(history: dict[str, list]) -> None:
     print(f"peak_infectious={max(history['i'])}")
     print(f"peak_mandate={max(history['mandate'])}")
     print(f"final_complying={history['complying'][-1]}")
+    print(f"peak_away_percent={max(history['away_percent']):.2f}")
 
 
 def write_description(
@@ -118,7 +119,7 @@ def plot_history(history: dict[str, list], output_file: Path) -> None:
         ("i", "Infectious", "crimson"),
         ("r", "Recovered", "seagreen"),
         ("mandate", "Mandate Level", "purple"),
-        ("complying", "Number Complying", "teal"),
+        ("away_percent", "Away from Home (%)", "teal"),
     )
 
     for axis, (key, title, color) in zip(axes.flat, plots):
