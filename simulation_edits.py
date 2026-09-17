@@ -570,11 +570,15 @@ class CandyLand:
     # Recalculate policy pressure, the mandate level, and the next review rate.
     def government(self) -> None:
         infected = float(len(self.health_groups[INFECTIOUS]))
-
-        # Pressure rises when infection is common and compliance is low.
-        pressure = (infected / self.population) * (
-            1.0 - self._num_compliant / self.population
+        floor_agents = self.on_floor[: self.num_on_floor]
+        floor_compliance = (
+            float(np.count_nonzero(self.compliant[floor_agents])) / self.num_on_floor
+            if self.num_on_floor
+            else 1.0
         )
+
+        # Pressure uses compliance only among agents currently on the floor.
+        pressure = (infected / self.population) * (1.0 - floor_compliance)
         if pressure < 0.25:
             self.mandate_level = 0
         elif pressure < 0.50:

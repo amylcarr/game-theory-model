@@ -484,6 +484,11 @@ class CandyLand:
         if building != -1 and old_health == SUSCEPTIBLE:
             self._remove_susceptible_floor(agent)
 
+        if new_health == INFECTIOUS:
+            for member in self.households[self.household_id[agent]]:
+                if member != agent and self.health[member] == SUSCEPTIBLE:
+                    self._change_health(member, EXPOSED)
+
         old_group = self.health_groups[old_health]
         old_position = int(self.health_positions[agent])
         last_agent = old_group[-1]
@@ -691,7 +696,7 @@ class CandyLand:
         pressure = (infected / self.population) * (1.0 - floor_compliance)
         if pressure < 0.25:
             self.mandate_level = 0
-        elif pressure < 0.50:
+        elif pressure < 0.5:
             self.mandate_level = 1
         elif pressure < 0.75:
             self.mandate_level = 2
