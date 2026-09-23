@@ -58,7 +58,6 @@ class DailyRateCurve:
 
     def rate_at(self, time: float) -> float:
         return self._rates[int(time) % 24]
-
     def __repr__(self) -> str:
         return f"DiurnalRateCurve(mean={sum(self._rates.values())/24:.4f}/hr)"
 
@@ -104,7 +103,7 @@ class CandyLand:
         self.num_on_floor = 0  # scalar: count of agents currently on the floor
         self._num_compliant = population  # scalar: count of agents marked compliant
         self.mandate_level = 0  # scalar: government mandate intensity (0–3)
-        self.lambda_logit = 1.0  # scalar: logit sensitivity for compliance choice
+        self.lambda_logit = 25.0  # scalar: logit sensitivity for compliance choice
         clock_path = (
             Path(sun_clock_file)
             if sun_clock_file is not None
@@ -373,7 +372,7 @@ class CandyLand:
                 p=list(household_size_probs.values()),
             )
     
-            size - min(size, self.population - next_agent)
+            size = min(size, self.population - next_agent)
     
             household_members = list(range(next_agent, next_agent  + size))
             self.households.append(household_members)
@@ -694,11 +693,11 @@ class CandyLand:
 
         # Pressure uses compliance only among agents currently on the floor.
         pressure = (infected / self.population) * (1.0 - floor_compliance)
-        if pressure < 0.25:
+        if pressure < 0.0001:
             self.mandate_level = 0
-        elif pressure < 0.5:
+        elif pressure < 0.0002:
             self.mandate_level = 1
-        elif pressure < 0.75:
+        elif pressure < 0.0015:
             self.mandate_level = 2
         else:
             self.mandate_level = 3
