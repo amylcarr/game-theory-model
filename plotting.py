@@ -13,6 +13,7 @@ from simulation_sun_clock import CandyLand as SunClockCandyLand
 
 PROJECT_DIR = Path(__file__).resolve().parent
 DEFAULT_PLOT = PROJECT_DIR / "simulation_plots.png"
+DEFAULT_INCOME_PLOT = PROJECT_DIR / "income_distribution_plots.png"
 DEFAULT_DESCRIPTION = PROJECT_DIR / "simulation_description.txt"
 
 
@@ -26,7 +27,7 @@ def run_simulation(
     sample_interval: float,
     seed: int,
     output_file: Path,
-) -> None:
+) -> object:
     model_class = (
         SunClockCandyLand
         if output_file.name == "simulation_sun_clock.csv"
@@ -55,6 +56,7 @@ def run_simulation(
     print(f"simulation_seconds={stop - start:.6f}")
     print(f"final_counts={counts[0]},{counts[1]},{counts[2]},{counts[3]}")
     print(f"final_complying={model.num_compliant()}")
+    return model
 
 
 def read_history(csv_file: Path) -> dict[str, list]:
@@ -68,12 +70,20 @@ def read_history(csv_file: Path) -> dict[str, list]:
         "complying": [],
         "away_percent": [],
     }
+    for prefix in ("compliance_q", "infectious_q"):
+        for quartile in range(1, 5):
+            history[f"{prefix}{quartile}"] = []
     with csv_file.open(newline="") as file:
         for row in csv.DictReader(file):
             history["time"].append(float(row["time"]))
             for key in ("s", "e", "i", "r", "mandate", "complying"):
                 history[key].append(int(row[key]))
             history["away_percent"].append(float(row["away_percent"]))
+            for prefix in ("compliance_q", "infectious_q"):
+                for quartile in range(1, 5):
+                    history[f"{prefix}{quartile}"].append(
+                        float(row[f"{prefix}{quartile}"])
+                    )
     return history
 
 
@@ -152,6 +162,39 @@ def plot_history(history: dict[str, list], output_file: Path) -> None:
     plt.show()
 
 
+def plot_income_distribution(history: dict[str, list], output_file: Path) -> None:
+    """Plot compliance and infectious fractions by income quartile over time."""
+    labels = ("Lowest 25%", "25-50%", "50-75%", "Highest 25%")
+    quartile_colors = ("#0072B2", "#E69F00", "#009E73", "#D55E00")
+    figure, axes = plt.subplots(2, 1, figsize=(12, 9), sharex=True)
+    for axis, prefix, title in (
+        (axes[0], "compliance_q", "Compliance Fraction"),
+        (axes[1], "infectious_q", "Infectious Fraction"),
+    ):
+        for quartile, (label, line_color) in enumerate(
+            zip(labels, quartile_colors), start=1
+        ):
+            axis.plot(
+                history["time"],
+                history[f"{prefix}{quartile}"],
+                label=label,
+                color=line_color,
+                linewidth=2,
+            )
+        axis.set_title(title)
+        axis.set_ylabel("Fraction of people")
+        axis.set_ylim(0.0, 1.0)
+        axis.grid(axis="y", alpha=0.3)
+        axis.legend()
+    axes[1].set_xlabel("Time (hours)")
+
+    figure.suptitle("Outcomes by Income Distribution Over Time")
+    figure.tight_layout()
+    figure.savefig(output_file, dpi=150)
+    print(f"Wrote income distribution plot: {output_file}")
+    plt.show()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run and plot the Candy Land epidemic simulation"
@@ -166,10 +209,11 @@ def main() -> None:
     parser.add_argument("--sample-interval", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--plot", type=Path, default=DEFAULT_PLOT)
+    parser.add_argument("--income-plot", type=Path, default=DEFAULT_INCOME_PLOT)
     parser.add_argument("--description", type=Path, default=DEFAULT_DESCRIPTION)
     args = parser.parse_args()
 
-    run_simulation(
+    model = run_simulation(
         args.num_buildings,
         args.population,
         args.avg_income,
@@ -194,6 +238,7 @@ def main() -> None:
         args.seed,
     )
     plot_history(history, args.plot)
+    plot_income_distribution(history, args.income_plot)
 
 
 if __name__ == "__main__":

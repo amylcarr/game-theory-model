@@ -101,9 +101,9 @@ class CandyLand:
         self.num_buildings = num_buildings  # scalar: how many public buildings exist
         self.population = population  # scalar: how many agents exist
         self.num_on_floor = 0  # scalar: count of agents currently on the floor
-        self._num_compliant = population  # scalar: count of agents marked compliant
+        self._num_compliant = 0  # scalar: count of agents marked compliant
         self.mandate_level = 0  # scalar: government mandate intensity (0–3)
-        self.lambda_logit = 25.0  # scalar: logit sensitivity for compliance choice
+        self.lambda_logit = 1.0  # scalar: logit sensitivity for compliance choice
         clock_path = (
             Path(sun_clock_file)
             if sun_clock_file is not None
@@ -133,7 +133,7 @@ class CandyLand:
         self.compliance_prob = np.full(
             population, 0.5
         )  # array[agent] -> that agent's continuous compliance probability
-        self.compliant = np.ones(
+        self.compliant = np.zeros(
             population, dtype=np.uint8
         )  # array[agent] -> 1 if compliant, 0 if not
         self.fatigue = np.zeros(
@@ -176,6 +176,9 @@ class CandyLand:
         
         self._initialize_households()
         self._initialize_incomes(avg_income, std_income)
+        self.income_quartiles = np.array_split(
+            np.argsort(self.incomes, kind="stable"), 4
+        )
 
         # Start with everyone susceptible, then infect a random initial subset.
         self.health[:num_infected] = INFECTIOUS
@@ -237,7 +240,11 @@ class CandyLand:
         output = None
         if write_output:
             output = open(output_file, "w", encoding="utf-8")
-            output.write("time,s,e,i,r,mandate,complying,on_floor,away_percent\n")
+            output.write(
+                "time,s,e,i,r,mandate,complying,on_floor,away_percent,"
+                "compliance_q1,compliance_q2,compliance_q3,compliance_q4,"
+                "infectious_q1,infectious_q2,infectious_q3,infectious_q4\n"
+            )
             self._record_state(output, 0.0)
 
         next_sample = sample_interval
@@ -723,11 +730,28 @@ class CandyLand:
     def _record_state(self, output, sample_time: float) -> None:
         # Save only aggregate values needed by the plotting and analysis scripts.
         counts = self.health_counts()
+        compliance_fractions = []
+        infectious_fractions = []
+        for group in self.income_quartiles:
+            floor_group = group[self.locations[group] != -1]
+            floor_count = len(floor_group)
+            if floor_count == 0:
+                compliance_fractions.append(0.0)
+                infectious_fractions.append(0.0)
+            else:
+                compliance_fractions.append(
+                    float(self.compliant[floor_group].mean())
+                )
+                infectious_fractions.append(
+                    float((self.health[floor_group] == INFECTIOUS).mean())
+                )
         output.write(
             f"{sample_time:.10g},{counts[SUSCEPTIBLE]},{counts[EXPOSED]},"
             f"{counts[INFECTIOUS]},{counts[RECOVERED]},"
             f"{self.mandate_level},{self._num_compliant},{self.num_on_floor},"
-            f"{100.0 * self.num_on_floor / self.population:.10g}\n"
+            f"{100.0 * self.num_on_floor / self.population:.10g},"
+            f"{','.join(f'{fraction:.10g}' for fraction in compliance_fractions)},"
+            f"{','.join(f'{fraction:.10g}' for fraction in infectious_fractions)}\n"
         )
 
 
