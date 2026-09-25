@@ -102,6 +102,9 @@ class CandyLand:
         self.population = population  # scalar: how many agents exist
         self.num_on_floor = 0  # scalar: count of agents currently on the floor
         self._num_compliant = 0  # scalar: count of agents marked compliant
+        self.num_interactions = 0  # scalar: count of susceptible-floor contact interactions attempted
+        self.num_s_to_e_infections = 0  # scalar: count of those interactions that resulted in an infection
+        self.num_household_infections = 0  # scalar: count of exposures caused by a household member becoming infectious
         self.mandate_level = 0  # scalar: government mandate intensity (0–3)
         self.lambda_logit = 1.0  # scalar: logit sensitivity for compliance choice
         clock_path = (
@@ -190,6 +193,7 @@ class CandyLand:
                 for household_member in self.households[self.household_id[agent]]:
                     if household_member != agent and self.health[household_member] == SUSCEPTIBLE:
                         self.health[household_member] = EXPOSED
+                        self.num_household_infections += 1
         
 
         # list[health_state] -> list of agent ids currently in that SEIR state
@@ -284,6 +288,15 @@ class CandyLand:
 
     def num_compliant(self) -> int:
         return self._num_compliant
+
+    def num_interactions_total(self) -> int:
+        return self.num_interactions
+
+    def num_infections_from_interactions(self) -> int:
+        return self.num_s_to_e_infections
+
+    def num_infections_from_households(self) -> int:
+        return self.num_household_infections
 
     # Confirm that all fast lookup structures still describe the same state.
     def validate(self) -> None:
@@ -494,6 +507,7 @@ class CandyLand:
             for member in self.households[self.household_id[agent]]:
                 if member != agent and self.health[member] == SUSCEPTIBLE:
                     self._change_health(member, EXPOSED)
+                    self.num_household_infections += 1
 
         old_group = self.health_groups[old_health]
         old_position = int(self.health_positions[agent])
@@ -647,13 +661,18 @@ class CandyLand:
         if len(occupants) <= 1:
             return
 
-        # Select another occupant uniformly without selecting the susceptible agent.
-        contact_position = self._random_index(len(occupants) - 1)
-        if contact_position >= self.building_positions[agent]:
-            contact_position += 1
-        contact = occupants[contact_position]
-        if self.health[contact] != INFECTIOUS:
-            return
+        # # Select another occupant uniformly without selecting the susceptible agent.
+
+        # contact_position = self._random_index(len(occupants) - 1)
+        # if contact_position >= self.building_positions[agent]:
+        #     contact_position += 1
+        # contact = occupants[contact_position]
+        # if self.health[contact] != INFECTIOUS:
+        #     return
+
+        # A susceptible agent sharing a building with at least one other
+        # occupant counts as one contact interaction, regardless of outcome.
+        self.num_interactions += 1
 
         local_exposure, _ = self._local_conditions(building, agent)
         global_prevalence = len(self.health_groups[INFECTIOUS]) / self.population
@@ -664,6 +683,7 @@ class CandyLand:
         exposure_probability = 1.0 - math.exp(-exponent)
         if self._uniform_probability() < exposure_probability:
             self._change_health(agent, EXPOSED)
+            self.num_s_to_e_infections += 1
 
     def e_to_i(self) -> None:
         if self.health_groups[EXPOSED]:
@@ -807,6 +827,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"final_complying={model.num_compliant()}")
         print(f"final_num_on_floor={model.num_on_floor}")
+        print(f"total_interactions={model.num_interactions_total()}")
+        print(f"infections_from_interactions={model.num_infections_from_interactions()}")
+        print(f"infections_from_households={model.num_infections_from_households()}")
         return 0
     except Exception as error:
         print(f"Error: {error}", file=sys.stderr)

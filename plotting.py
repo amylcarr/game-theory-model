@@ -14,6 +14,7 @@ from simulation_sun_clock import CandyLand as SunClockCandyLand
 PROJECT_DIR = Path(__file__).resolve().parent
 DEFAULT_PLOT = PROJECT_DIR / "simulation_plots.png"
 DEFAULT_INCOME_PLOT = PROJECT_DIR / "income_distribution_plots.png"
+DEFAULT_FLOOR_COMPLIANCE_PLOT = PROJECT_DIR / "floor_compliance_plot.png"
 DEFAULT_DESCRIPTION = PROJECT_DIR / "simulation_description.txt"
 
 
@@ -56,6 +57,10 @@ def run_simulation(
     print(f"simulation_seconds={stop - start:.6f}")
     print(f"final_counts={counts[0]},{counts[1]},{counts[2]},{counts[3]}")
     print(f"final_complying={model.num_compliant()}")
+    if hasattr(model, "num_interactions_total"):
+        print(f"total_interactions={model.num_interactions_total()}")
+        print(f"infections_from_interactions={model.num_infections_from_interactions()}")
+        print(f"infections_from_households={model.num_infections_from_households()}")
     return model
 
 
@@ -195,6 +200,29 @@ def plot_income_distribution(history: dict[str, list], output_file: Path) -> Non
     plt.show()
 
 
+def plot_floor_compliance(history: dict[str, list], output_file: Path) -> None:
+    """Plot the mean compliance fraction among agents currently on the floor."""
+    compliance_by_quartile = [
+        history[f"compliance_q{quartile}"] for quartile in range(1, 5)
+    ]
+    floor_compliance = [
+        sum(quartile_values) / len(compliance_by_quartile)
+        for quartile_values in zip(*compliance_by_quartile)
+    ]
+
+    figure, axis = plt.subplots(figsize=(12, 5))
+    axis.plot(history["time"], floor_compliance, color="darkviolet", linewidth=2)
+    axis.set_title("Mean Compliance Fraction on Public Floor")
+    axis.set_xlabel("Time (hours)")
+    axis.set_ylabel("Compliance Fraction")
+    axis.set_ylim(0.0, 1.0)
+    axis.grid(axis="y", alpha=0.3)
+    figure.tight_layout()
+    figure.savefig(output_file, dpi=150)
+    print(f"Wrote floor compliance plot: {output_file}")
+    plt.show()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run and plot the Candy Land epidemic simulation"
@@ -210,6 +238,11 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--plot", type=Path, default=DEFAULT_PLOT)
     parser.add_argument("--income-plot", type=Path, default=DEFAULT_INCOME_PLOT)
+    parser.add_argument(
+        "--floor-compliance-plot",
+        type=Path,
+        default=DEFAULT_FLOOR_COMPLIANCE_PLOT,
+    )
     parser.add_argument("--description", type=Path, default=DEFAULT_DESCRIPTION)
     args = parser.parse_args()
 
@@ -239,6 +272,7 @@ def main() -> None:
     )
     plot_history(history, args.plot)
     plot_income_distribution(history, args.income_plot)
+    plot_floor_compliance(history, args.floor_compliance_plot)
 
 
 if __name__ == "__main__":
