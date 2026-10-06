@@ -1,0 +1,1381 @@
+\documentclass[11pt]{article}
+
+% -------------------------------------------------
+% PAGE LAYOUT
+% -------------------------------------------------
+\usepackage[margin=1in]{geometry}
+
+% -------------------------------------------------
+% MATHEMATICS
+% -------------------------------------------------
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{bm}
+
+% -------------------------------------------------
+% TABLES
+% -------------------------------------------------
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{multirow}
+
+% Allows centered fixed-width table columns
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+
+% -------------------------------------------------
+% FIGURES AND DIAGRAMS
+% -------------------------------------------------
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption}
+
+% TikZ can be used for model diagrams and flowcharts
+\usepackage{tikz}
+\usetikzlibrary{
+    arrows.meta,
+    positioning,
+    shapes.geometric,
+    calc,
+    fit
+}
+
+% -------------------------------------------------
+% ALGORITHMS AND PSEUDOCODE
+% -------------------------------------------------
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% -------------------------------------------------
+% LISTS
+% -------------------------------------------------
+\usepackage{enumitem}
+
+% -------------------------------------------------
+% COLOR AND BOXES
+% -------------------------------------------------
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+
+% -------------------------------------------------
+% HEADERS AND FOOTERS
+% -------------------------------------------------
+\pagestyle{plain}
+
+% -------------------------------------------------
+% EDITORIAL NOTES
+%   \todo[inline]{CW: ...}  comment / question   (todonotes default, orange)
+%   \reply{JW: ...}         response / author note (blue)
+%   Set \notesfalse below to hide every note for a clean copy.
+% -------------------------------------------------
+\newif\ifnotes
+\notestrue
+\ifnotes
+  \usepackage[colorinlistoftodos,textwidth=\textwidth]{todonotes}
+\else
+  \usepackage[disable]{todonotes}
+\fi
+\newcommand{\reply}[1]{\todo[inline,color=blue!15,bordercolor=blue!40]{#1}}
+
+% -------------------------------------------------
+% HYPERLINKS
+% -------------------------------------------------
+% Hyperref should usually be loaded near the end.
+\usepackage[
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+]{hyperref}
+
+\usepackage[nameinlink,noabbrev]{cleveref}
+
+% -------------------------------------------------
+% SECTION NUMBERING
+% -------------------------------------------------
+\setcounter{secnumdepth}{3}
+
+% -------------------------------------------------
+% THEOREM ENVIRONMENTS
+% -------------------------------------------------
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{assumption}{Assumption}[section]
+\newtheorem{example}{Example}[section]
+\newtheorem{remark}{Remark}[section]
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{lemma}{Lemma}[section]
+
+% -------------------------------------------------
+% CUSTOM COMMANDS
+% -------------------------------------------------
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\E}{\mathbb{E}}
+
+\newcommand{\Comp}{\mathrm{C}}
+\newcommand{\NonComp}{\mathrm{N}}
+
+\newcommand{\before}{t^-}
+\newcommand{\after}{t^+}
+
+% -------------------------------------------------
+% DOCUMENT INFORMATION
+% -------------------------------------------------
+\title{A Continuous-Time Stochastic SEIRS Model Coupling Mobility, Boundedly Rational Compliance, and Adaptive Government Intervention}
+
+\author{Jonathan Wisnoff$^{1}$, Amy Carr$^{1}$, Chuntian Wang$^{1}$\thanks{Corresponding author. E-mail: cwang27@ua.edu}, Jia Zhao$^{1}$}
+\date{\today}
+
+% -------------------------------------------------
+% DOCUMENT
+% -------------------------------------------------
+\begin{document}
+
+\maketitle
+
+\vspace{-1em}
+\begin{small}
+\centerline{$^{1}$\emph{Department of Mathematics, The University of Alabama, Tuscaloosa, AL 35487, USA.}}
+\end{small}
+
+\vskip 0.1 in
+
+\begin{abstract}
+We develop a continuous-time stochastic model of epidemic spread in which human behavior, movement, and government policy evolve together with the disease. The population follows a SEIRS compartmental structure and moves between private homes and the public buildings of a city, represented as a complete graph, with all transitions driven by independent Poisson clocks. Each time an individual enters a public building, the choice between complying and not complying with public-health restrictions is made through a logit response rule, so that decisions are boundedly rational rather than perfectly optimal. The utilities behind this choice depend on perceived infection risk, the compliance tendency of the other occupants of the same building, a financial burden tied to income, and fatigue accumulated from prolonged compliance. Updates are asynchronous: only the arriving individual recomputes their compliance probability while the stored probabilities of the others remain fixed. The government enters as a system-level agent whose mandate level is revised at random review times in response to current infection prevalence and population-wide noncompliance, and whose mandate in turn feeds back into individual risk perception. A day-night clock modulates movement rates. All active clocks are merged into a single event-driven simulation, and a worked example illustrates one decision event.
+\end{abstract}
+\todo[inline]{Draft abstract written from the introduction; please verify and revise.}
+
+\noindent\textbf{Keywords:} stochastic SEIRS model; independent Poisson clocks; logit response; bounded rationality; asynchronous updating; human mobility; government intervention; game theory.
+
+% -------------------------------------------------
+% MAIN SECTIONS
+% -------------------------------------------------
+\tableofcontents
+
+\section{Introduction}
+
+The effects of COVID-19 continue to be felt in societies across the world, which reinforces the need for mathematical modeling of epidemics. In response, researchers have developed a wide range of modeling approaches that attempt to capture features of human behavior during an outbreak. These include, but are not limited to, classical compartmental models such as the SIR and SEIR models, network-based models in which people are represented as nodes and their interactions as edges, and stochastic models in which transitions happen probabilistically rather than deterministically.
+
+Our model fits into this discussion by combining aspects of different classical models to create our own variation of the stochastic SEIRS compartmental model. While classical models tend to use ODEs to describe the overall spread of the virus, we use a continuous-time stochastic process driven by Poisson clocks to describe the dynamics at a more granular level. We address human decision making with game theory, in which an individual's decision to comply or not to comply depends on a selection of variables: infection rate, perceived risk, financial burden, government mandates, and restriction fatigue. This yields a modeling framework that considers not only the biological effects of the virus but also behavioral changes. Game-theoretic approaches have previously been used to study infectious
+disease dynamics and intervention strategies \cite{chang2020}. In our model,
+game theory provides a framework for representing the behavioral decision
+between compliance and noncompliance as epidemic conditions change.
+
+A common network framework uses nodes to represent agents. Our model, in contrast, is built on a complete graph in which the nodes represent the public buildings of a city and the edges represent accessibility between buildings. The complete graph is an idealization: it assumes that any public building is reachable from any other public building. In addition, every individual in the model has a private home, in order to simulate realistic day-to-day life. We model movement around the city, between buildings and the private home, using different types of continuous-time stochastic clocks, and we include a day--night stochastic clock so that movement around the city is more active during the day and less active at night.
+
+We then use the well-established SEIRS compartmental model, in which the acronym stands for susceptible, exposed, infectious, and recovered, with recovered individuals eventually returning to the susceptible state as immunity wanes. We model changes in health status through stochastic processes because the details of the spread depend on the specific interactions between individuals. We implement four different types of stochastic clocks to model the changes in health status of the individuals. This gives a more natural randomness that is akin to the uncertainty of becoming infected during an epidemic.
+
+Finally, researchers have developed numerous methods to simulate human behavior. Our model uses game theory because of its mature and well-developed theory and its vast range of applications in the social sciences, such as economics, political science, and psychology. Furthermore, game theory allows us to capture many of the rational tendencies of individuals during a pandemic. Many argue that classical game-theoretic models lack realism because they assume perfect rationality. To account for this criticism, our model uses a logit response function that bounds the rationality of every individual. The logit response model allows us to use game-theoretic concepts while rejecting the assumption of perfect rationality, in order to produce more realistic decision making during the epidemic.
+
+Every time an individual walks into a building, they weigh the costs of complying against the benefits and make a decision. An individual's utility functions depend on their perceived risk, restriction fatigue, the government mandate, and the local infection rate, and each of these can alter the individual's decision. Based on the values of these variables, the logit response model assigns the individual a probability that corresponds to how likely they are to comply. As the virus spreads, the logit response model naturally simulates how behavior changes when an epidemic grows or shrinks in size.
+
+While government interventions are commonly included in epidemic models, they are usually a fixed external parameter. In contrast, our model turns the government into a system-level agent that plays the game as well. This is done by making the government's decision a reaction to the actions of the individuals on the public floor. The compliance decisions made by the individuals affect the government's mandate, and vice versa. Moreover, we again use a stochastic clock to model when the government meets and assesses the mandate level.
+
+The rest of the paper is organized as follows. \Cref{sec:model} introduces the population, the state variables, the public-floor graph, and the movement clocks. \Cref{sec:behavioral} defines the compliance decision: the two utility functions, the perceived risk, the local compliance information, the financial burden, the restriction fatigue, and the logit response rule. \Cref{sec:gov-disease} describes the government as a system-level agent and the SEIRS disease dynamics. \Cref{sec:simulation} merges all Poisson clocks into a single event-driven simulation and states the initialization. \Cref{sec:numerics} reports numerical results, and \Cref{sec:conclusion} concludes. The simulation pseudocode and a fully worked decision event are given in the Supplementary Material.
+
+
+\section{Model Formulation}
+\label{sec:model}
+
+The model consists of a fixed population of $M$ individuals whose health status, behavioral choice, and location may change over time. Each individual is assigned to exactly one state at any given time, and the population state variables record how many individuals occupy each compartment. These variables provide a complete description of the system at time $t$ and are updated whenever a disease progression, movement, behavioral, or government event occurs.
+
+\subsection{Population and State Variables}
+\label{sec:population}
+
+Individuals are not differentiated by age, occupation, or other attributes. Every individual can go to any building at any time, and an individual's location is described by the nodes of the graph, which represent the buildings.
+
+We assume a continuous time variable \(t\in[0,\infty)\), a probability space
+\[
+(\Omega,\mathcal F,\mathbb P),
+\]
+and a deterministic population size \(M\) that is fixed in time. For each \(\omega\in\Omega\),
+we assume that at a given time \(t\), the state of individual \(i\) is given by
+\[
+X_i(\omega,t)
+=
+\big(H_i(\omega,t),L_i(\omega,t),B_i(\omega,t),p_i(\omega,t),K_i(\omega,t),F_i\big).
+\]
+Here, \(H_i(\omega,t)\) is the health state of individual \(i\), \(L_i(\omega,t)\) is the location
+state, \(B_i(\omega,t)\) is the realized behavioral state, \(p_i(\omega,t)\) is the stored
+probability of compliance, \(K_i(\omega,t)\) is the restriction fatigue, and \(F_i\) is the
+financial burden of individual \(i\).
+
+For every \(t\), we define the stochastic process \(X_i(t)\) as
+\[
+X_i(t)=\{X_i(\omega,t):\omega\in\Omega\}.
+\]
+In a similar way, the full system state is defined by
+\[
+X_M(t)
+=
+\big(X_1(t),X_2(t),\ldots,X_M(t),G(t),Z(t)\big),
+\]
+where \(G(t)\) is the government mandate level and \(Z(t)\) is the current hourly movement-rate pair $(\alpha_{HB},\alpha_{BH})$ set by the sun clock.
+
+Throughout the paper we write $S(t)$, $E(t)$, $I(t)$, and $R(t)$ for the numbers of susceptible, exposed, infectious, and recovered individuals at time $t$, so that $S(t)+E(t)+I(t)+R(t)=M$ for all $t$. Similarly, $M_F(t)$ and $M_P(t)$ denote the numbers of individuals on the public floor and in private homes, and $M_C(t)$ denotes the number of individuals whose realized behavioral state is compliance. These aggregate counts are the quantities reported in the numerical experiments of \Cref{sec:numerics}.
+\todo[inline]{JW: Since we are using M instead of N to represent population I changed $M_F(t)$ and $M_P(t)$ to $M_F(t)$ and $M_P(t)$ in the paragraph above}
+
+
+\subsection{Health, Location, and Behavioral States}
+\label{sec:states}
+
+\subsubsection{Location States}
+
+Let $L_i(t)$ be the location state of individual $i$. Then $L_i(t) \in B \cup \{-1\}$, where $B = \{b_1, b_2, \ldots ,b_K\}$ is the set of the $K$ nodes (public buildings) and $-1$ denotes the private home.
+
+For the Poisson clocks we only need to distinguish whether an individual is in the private home, $L_i(t) = -1$, or in some building on the public floor, $L_i(t) = b$ for some $b \in B$. We therefore also use the coarser location state $L_i(t) \in \{P,F\}$, where $P$ stands for the private home and $F$ stands for the public floor.
+
+\subsubsection{Health States}
+
+We use a stochastic SEIRS model. Every individual is either susceptible, exposed, infectious, or recovered, and after a while the immunity of a recovered individual wanes and the individual returns to the susceptible state. The health state is
+\[
+H_i(t) \in \{S, E, I ,R \}.
+\]
+
+\todo[inline]{CW: We may need to introduce stochastic processes at this point. Please see the pdf  file updated to help you to write it.}
+
+\subsubsection{Household Assignments}
+Using data from {FIXME: ACS refernce}, we assign household IDs to each agent upon simulation initialization. Agents with the same household ID represent individuals that live together. Moreover, when an agent becomes infectious, agents sharing the household ID immediately change their health state to exposed. 
+
+\subsubsection{Behavioral Variables}
+\paragraph{Stored compliance probability.}
+
+Every individual has a probability of compliance, denoted by $p_i(t)$. This probability is updated by the logit response rule after individual $i$ enters a building.
+
+\paragraph{Income.}
+
+Every individual in the population is also assigned an income, from which the financial burden $F_i$ is determined. This is addressed in detail in \Cref{sec:fin}, where we discuss how the financial burden enters the utility functions and affects decision making.
+
+\paragraph{Realized behavioral state.}
+
+The realized behavioral state is the outcome of a Bernoulli trial whose success probability is computed by the logit response rule of \Cref{sec:logit}. The two behavioral states are compliance, $C$, and noncompliance, $N$, so that
+\[
+B_i(t) \in \{C,N\}.
+\]
+The way in which these two states lead to different outcomes is detailed in \Cref{sec:sus}.
+
+\subsubsection{Full Compartments}
+
+Therefore, at any time, every individual $i$ is in one of the following twelve compartments:
+\[
+S_{C,F},\ E_{C,F},\ I_{C,F},\ R_{C,F},
+\]
+\[
+S_{N,F},\ E_{N,F},\ I_{N,F},\ R_{N,F},
+\]
+\[
+S_{C,P},\ E_{C,P},\ I_{C,P},\ R_{C,P},
+\]
+where the first subscript is the behavioral state, the second subscript is the coarse location state, and individual $i$ complies with probability $p_i(t)$.
+
+\begin{remark}
+Being in the private home, $L_i(t) = P$, is an implied form of compliance: it is impossible to be in the private home and simultaneously noncompliant. Therefore, we exclude
+\[
+S_{N,P},\ E_{N,P},\ I_{N,P},\ R_{N,P}
+\]
+from the possible compartments.
+\end{remark}
+
+\todo[inline]{CW: As I have mentioned, we will need to subsequently say things like "Moving clocks are attached to all the $S_{C,P}$ agents, one for each, and upon an advancement of such a clock the corresponding clock carrier will...."}
+
+\subsection{The Public-Floor Graph}
+\label{sec:graph}
+
+The public floor is where the compliance decisions and the disease spread take place. This subsection describes the public buildings and the local building populations; the Poisson clocks that govern movement are described in \Cref{sec:movement}, and the decision between complying and not complying that is made upon entering a building is described in \Cref{sec:behavioral}.
+
+\subsubsection{Public Buildings}
+
+Let $K$ denote the number of buildings in the graph. We use a complete graph whose nodes are the buildings $b \in B$, so that an individual can travel from any building to any other building with probability $1/K$. Note that an individual may move from building $b$ to the same building $b$ in our model. This is negligible in the grand scheme of things and also helps to model the fact that some individuals stay in buildings longer than others.
+
+%\subsection{Open and Closed Buildings}
+
+%We will need to determine if we want to even close any buildings but it seems as if we are planning to instead make it so that the clock movements change rather than shutting down buildings.
+%\textcolor{red}{This can be writte as a remark; to say that Government policy have several variations, we may have only adopted one of them, and here are the other types:....}
+
+\subsubsection{Local Building Populations}
+
+At time $t$, each public building contains a local population consisting of all individuals currently located in that building. For building $b$, let $\mathcal{N}_b(t)$ denote the set of individuals occupying building $b$ at time $t$, and let $N_b(t)=|\mathcal{N}_b(t)|$ denote the total number of occupants. The local building population is important because an individual's behavioral update and risk assessment depend on the people currently present in the same building rather than on the entire population.
+
+\subsubsection{Local Infectious Populations}
+
+An individual's perceived infection risk depends partly on the number of infectious individuals present in the same public building. Suppose individual $i$ is located in building $b$ at time $t$. Let $\mathcal{I}_b(t)\subseteq \mathcal{N}_b(t)$ denote the set of infectious individuals currently occupying building $b$, and let $I_b(t)=|\mathcal{I}_b(t)|$ denote the local infectious population.
+
+For individual $i$, define the proportion of local infectious contacts by
+\begin{equation}\label{eq:1}
+ \varepsilon_{i,b}(t)=\frac{|\mathcal{I}_b(t)\setminus\{i\}|}{|\mathcal{N}_b(t)\setminus\{i\}|}.
+\end{equation}
+Thus, $\varepsilon_{i,b}(t)$ is the proportion of the other individuals in the current building of individual $i$ that are infectious. Individual $i$ is excluded from both the numerator and the denominator because $\varepsilon_{i,b}(t)$ measures infection among the people with whom individual $i$ may interact. If individual $i$ is alone in the building, then $\varepsilon_{i,b}(t)$ is defined to be zero.
+
+
+\subsection{Movement Clocks}
+\label{sec:movement}
+
+The movement of individuals between public buildings and private homes is governed by Poisson clocks. Each movement clock represents a different type of location change and is active only when the corresponding movement is possible (that is, when individual $i$ is in the appropriate compartment).
+The following subsections define the building-to-building clock, the building-to-home clock, and the home-to-building clock, together with their rates, waiting-time distributions, active compartments, and effects on the state of an individual.
+
+\subsubsection{Building-to-Building (BTB) Movement: \texorpdfstring{$b\rightarrow b'$}{b to b'}}
+\label{sec:btb}
+
+The building-to-building (BTB) movement clock determines when an individual moves from their current public building to another public building. Let $b,b'\in B$ be two public buildings,
+%\textcolor{red}{These notations may need to be introduced earlier, because you have already mentioned "u" denoting a building earlier}
+where $B=\{b_1,\ldots,b_K\}$ is the set of all public buildings. The clock governs transitions of the form
+\[
+b\longrightarrow b',
+\qquad b,b' \in B.
+\]
+
+This clock is active for every individual who is currently on the public floor. Therefore, a BTB clock is assigned to each individual in the following eight floor compartments:
+\[
+S_{C,F},\ E_{C,F},\ I_{C,F},\ R_{C,F},
+\quad\text{and}\quad
+S_{N,F},\ E_{N,F},\ I_{N,F},\ R_{N,F}.
+\]
+
+%\textcolor{red}{For math tightness, we usually say: one Type (I) clock is assigned to each agent in the followoing compartments...}
+
+Let $\alpha_{BB}$ denote the rate of the BTB clock. For an individual $i$ currently located in building $b$, the waiting time until the individual's next movement to another public building is
+\[
+T_i^{BB}\sim\operatorname{Exp}(\alpha_{BB}).
+\]
+\todo[inline]{CW: It OK to simply say that the waiting time is an exponential random variable with mean as the reciprocal of its rate.}
+Empirical studies of daily human mobility suggest that individuals typically
+visit only a small number of distinct locations each day. Schneider et al.\
+found that the average number of locations visited per day was approximately
+three, with 90\% of individuals visiting fewer than seven locations \cite{schneider2013}. Motivated by this empirical scale, we assume that an
+individual makes approximately 2.5 public-building movements per day.
+Since the model measures time in days, we therefore set
+\[
+\alpha_{BB}=2.5.
+\]
+
+The expected waiting time is
+\begin{equation}
+ \mathbb{E}\left[T_i^{BB}\right]  =
+ \frac{1}{\alpha_{BB}}  =  \frac{1}{2.5}
+=0.4
+\end{equation}
+days. Converting this value to hours gives $0.4(24)=9.6$ hours.
+
+Thus, an individual currently on the floor moves from one public building to another on average every $9.6$ hours.
+When the clock rings, the destination building is selected uniformly at random: if individual $i$ is currently in building $b$, then the probability that individual $i$ moves to $b'$ is $1/K$ for any $b' \in B$.
+
+%\textit{Remark: The buildings being closed would change this probability and probably make this code more complicated so I am now thinking to refrain from building closure.}
+%\textcolor{red}{Agreed. As I have  said previously, this can be rewritten into a remark, something like a future work}
+
+This clock also works as a decision clock and updates the individual's compliance status.
+When individual $i$ moves from building $b$ to building $b'$, the individual recomputes their compliance probability and performs a Bernoulli trial. The way in which the decision process updates an individual's probability is described in \Cref{sec:behavioral}.
+
+To conclude, once a BTB clock advances, the individual carrying the clock immediately jumps from building $b$ to another building $b'$, recomputes their compliance probability, and performs a Bernoulli trial with this probability to update their compliance status.
+
+%\textcolor{red}{To make the narration more precisly, we can add something like: To conlude, once a Type (I) clock advances, the corresponding carrier will immediately carry out a jump to a different building or stay put. Then rightafter that, he will recompute his decision probability, update his decision probability, and perorm a Bernoulli sampling using this probablity, to update his compliance status....something like this. }
+
+
+\subsubsection{Building-to-Home Movement: \texorpdfstring{$b\rightarrow -1$}{b to home}}
+\label{sec:bth}
+
+The building-to-home (BTH) movement clock determines when an individual leaves their current public building and returns to their private home. Let $b\in B$ be the public building currently occupied by the individual, and let $-1$ represent the individual's private home. The clock governs transitions of the form
+\begin{equation}
+b\longrightarrow -1,
+\qquad  b\in B.
+\end{equation}
+
+This clock is active for every individual who is currently on the public floor.
+Therefore, individuals in any of the following eight floor compartments receive this clock:
+\[
+S_{C,F},\ E_{C,F},\ I_{C,F},\ R_{C,F},
+\quad\text{and}\quad
+S_{N,F},\ E_{N,F},\ I_{N,F},\ R_{N,F}.
+\]
+
+\todo[inline]{CW: Maybe ``Every agent in the "public-floor" compartment has a Type (II) clock.''}
+
+Let $\alpha_{BH}$ denote the rate of the BTH clock. For an individual $i$ currently located in building $b$, the waiting time until the individual returns home is
+\[
+T_i^{BH}\sim\operatorname{Exp}(\alpha_{BH}).
+\]
+
+We assume that an individual spends approximately $4.5$ consecutive hours on the public floor before returning home. Since the model measures time in days, we first convert $4.5$ hours into days:
+\[
+\frac{4.5}{24}=0.1875\text{ days}.
+\]
+
+The expected waiting time of an exponential random variable is the reciprocal of its rate. Therefore,
+\[
+\mathbb{E}\left[T_i^{BH}\right]=\frac{1}{\alpha_{BH}}=0.1875,
+\qquad\text{so that}\qquad
+\alpha_{BH}=\frac{16}{3}.
+\]
+
+This is a baseline mean; in the simulation the rate $\alpha_{BH}$ varies with the hour of day through the sun clock of \Cref{sec:sun}.
+
+%%\textcolor{red}{Part of the above computatino seems to be a double-check of some computation, which could be deleted. }
+
+When a BTH clock rings at time $t$, the individual carrying the clock, located in building $b$, changes their location state to $-1$, the private home. The individual's health status does not change during this movement.
+
+Since an individual located at home is considered compliant in the model, individuals from both compliant and noncompliant floor compartments enter the corresponding compliant private compartment. The possible transitions are
+\[
+S_{C,F}\longrightarrow S_{C,P},
+\qquad
+S_{N,F}\longrightarrow S_{C,P},
+\]
+\[
+E_{C,F}\longrightarrow E_{C,P},
+\qquad
+E_{N,F}\longrightarrow E_{C,P},
+\]
+\[
+I_{C,F}\longrightarrow I_{C,P},
+\qquad
+I_{N,F}\longrightarrow I_{C,P},
+\]
+and
+\[
+R_{C,F}\longrightarrow R_{C,P},
+\qquad
+R_{N,F}\longrightarrow R_{C,P}.
+\]
+
+The individual's stored compliance probability remains attached to the individual while they are at home. However, the individual does not perform a new decision update or Bernoulli trial when moving from a public building to their private home.
+
+\subsubsection{Home-to-Building Movement: \texorpdfstring{$-1\rightarrow b$}{home to b}}
+\label{sec:htb}
+
+The home-to-building (HTB) movement clock determines when an individual leaves their private home and enters a public building. Let $-1$ represent the individual's private home, and let $b\in B$ be the public building selected by the individual. The clock governs transitions of the form
+\begin{equation}
+-1\longrightarrow b,
+\qquad  b\in B.
+\end{equation}
+
+This clock is active for every individual who is currently located at home. Since individuals at home are considered compliant, individuals in the following four private compartments receive this clock:
+\[
+S_{C,P},\ E_{C,P},\ I_{C,P},\ R_{C,P}.
+\]
+
+Let $\alpha_{HB}$ denote the rate of the HTB clock. For an individual $i$ currently located at home, the waiting time until the individual returns to a public building is
+\[
+T_i^{HB}\sim\operatorname{Exp}(\alpha_{HB}).
+\]
+
+We assume that an individual spends approximately $19.5$ consecutive hours at home before returning to the public floor. This value is determined by subtracting the average $4.5$ hours spent on the public floor from the $24$ hours in one day:
+\[
+24-4.5=19.5\text{ hours}.
+\]
+
+Since the model measures time in days, we convert $19.5$ hours into days:
+\[
+\frac{19.5}{24}=0.8125\text{ days}.
+\]
+
+The expected waiting time of an exponential random variable is the reciprocal of its rate. Therefore,
+\[
+\mathbb{E}\left[T_i^{HB}\right]=\frac{1}{\alpha_{HB}}=0.8125,
+\]
+and solving for $\alpha_{HB}$ gives
+\[
+\alpha_{HB}=\frac{1}{0.8125}=\frac{16}{13}.
+\]
+
+This is a baseline mean; in the simulation the rate $\alpha_{HB}$ varies with the hour of day through the sun clock of \Cref{sec:sun}.
+
+When the clock rings, the destination building is selected from the set of public buildings $B$. Since every building is equally likely to be selected, the probability that individual $i$ enters building $b$ is
+\[
+\frac{1}{K}
+\]
+for any $b\in B$.
+
+%\begin{remark}\label{rem:1}
+%If building closures are later included in the model, closed buildings would need to be removed from the set of possible destinations. The probability of entering each open building would then depend on the number of buildings that remain open.
+%\end{remark}
+%\textcolor{red}{This remark can be combinted with the other ones, and you can refer to them by saying: see Remark \ref{rem:1} below. }
+
+This clock also works as a decision clock and updates the individual's compliance status. When individual $i$ moves from home into building $b$, the individual updates their stored compliance probability using the local population of the selected building and then performs a Bernoulli trial.
+
+The individual's health status remains unchanged, but the Bernoulli trial determines whether the individual enters the compliant or noncompliant version of the corresponding floor compartment. The possible transitions are
+
+\todo[inline]{CW: We could combine the description of the three clocks together, as their mechanisms are very similar, for example, they will both preserve the health status.}
+
+\[
+S_{C,P}\longrightarrow S_{C,F}
+\qquad \text{or} \qquad
+S_{C,P}\longrightarrow S_{N,F},
+\]
+\[
+E_{C,P}\longrightarrow E_{C,F}
+\qquad \text{or} \qquad
+E_{C,P}\longrightarrow E_{N,F},
+\]
+\[
+I_{C,P}\longrightarrow I_{C,F}
+\qquad \text{or} \qquad
+I_{C,P}\longrightarrow I_{N,F},
+\]
+and
+\[
+R_{C,P}\longrightarrow R_{C,F}
+\qquad \text{or} \qquad
+R_{C,P}\longrightarrow R_{N,F}.
+\]
+
+\todo[inline]{CW: The above can be written into the table of merged rate and probability of each arrival belonging to certain clock. Here we could consider deleting them.}
+
+The process used to update an individual's compliance probability and perform the Bernoulli trial is described in detail in \Cref{sec:behavioral}.
+
+\subsection{The Day--Night (Sun) Clock}
+\label{sec:sun}
+
+To model the difference between daytime and nighttime movement behavior, we introduce a
+system-level sun clock. Rather than a two-state day/night switch, the model uses an empirical hourly
+profile of movement. Let $h(t)=\lfloor t\rfloor \bmod 24$ denote the hour of the day at time $t$ (measured in hours). Two lookup tables, read from a file with one row per hour, give the per-individual movement rates
+\[
+\alpha_{HB}(h),\qquad \alpha_{BH}(h),\qquad h=0,1,\ldots,23,
+\]
+where $\alpha_{BH}(h)$ is the rate at which an individual on the public floor returns home and $\alpha_{HB}(h)$ is the rate at which an individual at home enters the public floor during hour $h$. Both rates are nonnegative and finite, and they are larger or smaller during different parts of the day, so that individuals enter public buildings more frequently during the day and return home more frequently at night.
+
+The sun clock is a system-level clock, meaning it is not assigned to a particular individual. Its rate is $\alpha_{\mathrm{sun}}=1$ per hour (24 per day), so that the waiting time until the next sun-clock event is
+\[
+T^{\mathrm{sun}}\sim \operatorname{Exp}(\alpha_{\mathrm{sun}}),\qquad \mathbb{E}\left[T^{\mathrm{sun}}\right]=1\text{ hour}.
+\]
+When the sun clock rings at time $t$, the movement rates are refreshed from the lookup tables,
+\[
+\alpha_{BH}\leftarrow\alpha_{BH}(h(t)),
+\qquad
+\alpha_{HB}\leftarrow\alpha_{HB}(h(t)).
+\]
+At $t=0$ the rates are initialized from hour $0$. Between sun-clock events the rates are held fixed, so the rates in force lag the true hour of the day by the (random) time since the last ring. Like every other clock, the sun clock is merged into the event-driven simulation of \Cref{sec:merged}.
+
+\todo[inline]{The hourly profile is the file \texttt{sun\_clock\_leave\_probability.csv}. The former two-state version, with $\alpha_{BH}\in\{16/13,16/3\}$ and $\alpha_{HB}\in\{16/3,16/13\}$ per day and $\alpha_{\mathrm{sun}}=2$ per day, is no longer used.}
+
+\section{Behavioral Decision Model}
+\label{sec:behavioral}
+
+We now look at the inner workings of the utility functions that produce the utility scores. We define $D=\{C,N\}$ as the set of decisions, consisting of compliance and noncompliance.
+
+Each quantity entering the utilities is defined in the following subsections: perceived risk in \Cref{sec:risk}, local compliance information in \Cref{sec:peer}, financial burden in \Cref{sec:fin}, and restriction fatigue in \Cref{sec:fatigue}. \Cref{sec:logit} then states the logit response rule that converts the two utilities into a compliance probability.
+
+
+\subsection{Utility Functions of Compliance and Noncompliance}
+\label{sec:utility}
+
+Our utility function for \textbf{compliance} is
+\begin{equation}\label{eq:3}
+  U_{i,C}(t) = \ln(1+ R_i(t)) + \ln(1+q_i(t)) - F_i ,
+\end{equation}
+where $R_i(t)$ is the perceived risk, $q_i(t)$ is the average compliance probability of the other individuals in the same building, and $F_i$ is the financial cost of complying.
+
+For \textbf{noncompliance}, the utility function is
+\begin{equation}\label{eq:4}
+U_{i,N}(t) = K_i(t) - R_i(t) - q_i(t),
+\end{equation}
+where $K_i(t)$ is the restriction fatigue accumulated from complying.
+
+\subsubsection{Interpretation of Utility Differences}
+
+The variables in the utility functions represent the main factors that affect an individual's decision. Perceived risk $R_i(t)$ increases the benefit of compliance and decreases the benefit of noncompliance because a person is more likely to protect themselves when they believe infection is likely. The local compliance term $q_i(t)$ makes compliance more attractive when other individuals in the same building are also likely to comply. The cost $F_i$ lowers the utility of compliance because complying may create financial or work-related burdens. Finally, restriction fatigue $K_i(t)$ increases the utility of noncompliance because prolonged compliance may make returning to normal activity more appealing.
+
+\subsubsection{Diminishing Marginal Utility}
+
+The law of diminishing marginal utility states that as an individual receives more of a benefit, each additional amount provides less satisfaction than the amount before it. For example, if a person is craving a donut, the first donut may provide a large amount of satisfaction. A second donut may still be enjoyable, but it will usually provide less additional satisfaction than the first. After several donuts, the additional satisfaction may become very small or even negative.
+
+We represent this idea using the natural logarithm. The function $\ln(1+x)$ increases as $x$ increases, but it increases at a decreasing rate. Therefore, additional increases in a variable continue to affect utility, but each increase has a smaller effect than the previous one.
+
+This is especially appropriate for perceived risk. When perceived risk is initially low, a small increase in risk may have a large effect on an individual's willingness to comply. However, when perceived risk is already very high, an additional increase may still raise the utility of compliance, but by a smaller amount. Thus, the natural logarithm prevents perceived risk from increasing utility at a constant or unrealistically large rate.
+
+
+\subsection{Perceived Risk}
+\label{sec:risk}
+
+An individual's perceived risk at time $t$ is defined by
+\begin{equation}\label{eq:risk}
+ R_i(t)=\frac{I(t)}{M}\varepsilon_{i,b}(t)+G(t).
+\end{equation}
+\todo[inline]{CW: We should utilize equation formats, and the ability to refer to equations. The same thing, for each section, we should also able them, so that we can later refer to them whenever helpful.}
+
+The term $I(t)/M$ represents the global prevalence of infection, $\varepsilon_{i,b}(t)$ represents the individual's local exposure, and $G(t)$ represents the current government mandate signal. The product $\frac{I(t)}{M}\varepsilon_{i,b}(t)$ combines information about infection throughout the population with the infection conditions in the individual's current building.
+
+Empirical evidence supports treating perceived infection risk as an important
+determinant of protective behavior. Bruine de Bruin and Bennett found that
+individuals who perceived a greater risk of COVID-19 infection were more
+likely to engage in protective behaviors, including avoiding crowds,
+handwashing, avoiding high-risk individuals, and postponing travel
+\cite{bruine2020}. Therefore, we allow increases in $R_i(t)$ to increase
+the utility associated with compliance.
+
+\begin{remark}[Global infection prevalence]
+\label{rem:prevalence}
+Let $I(t)$ denote the total number of infectious individuals in the population at time $t$, and let $M$ denote the total population size. The proportion
+\[
+\frac{I(t)}{M}
+\]
+represents the fraction of the population that is currently infectious.
+
+As $I(t)/M$ increases, infection becomes more common throughout the population. Therefore, an individual has a greater reason to believe that public interaction may result in exposure. This increases perceived risk and makes compliance more attractive.
+\end{remark}
+
+\subsubsection{Local Exposure}
+
+Risk perception is not determined solely by objective disease prevalence.
+Paek and Hove describe perceived susceptibility as a subjective assessment
+that is shaped by contextual information, personal circumstances, and broader
+societal risk \cite{paek2017}. Motivated by this framework, we allow both
+population-level infection prevalence and an individual's immediate local
+exposure to contribute to perceived risk.
+
+The variable $\varepsilon_{i,b}(t)$ of \eqref{eq:1} is the proportion of the other individuals in individual $i$'s current building $b$ who are infectious; recall that $\varepsilon_{i,b}(t)=0$ if individual $i$ is alone in the building.
+
+Local exposure affects perceived risk because individuals are more likely to be concerned about infection when infectious people are present in their immediate environment. An individual in a building with a large infectious proportion will perceive more risk than an individual in a building with few or no infectious individuals.
+
+The local exposure term is multiplied by the global infection prevalence:
+\[
+\frac{I(t)}{M}\varepsilon_{i,b}(t).
+\]
+This means that perceived infection risk is largest when infection is widespread throughout the population and the individual is also surrounded by infectious people locally. If either global prevalence or local exposure is low, the infection-risk contribution is reduced.
+
+\subsubsection{Government Mandate Signal}
+
+The variable $G(t)$ represents the strength of the government mandate at time $t$. The mandate signal takes values in
+\[
+G(t)\in\{0,1,2,3\},
+\]
+where larger values represent stronger government restrictions.
+
+Government restrictions can themselves act as signals of epidemic severity.
+Costa-Font and Vilaplana-Prieto found that the announcement of mobility
+restrictions was associated with increased risk awareness and health anxiety,
+even after accounting for observed epidemiological conditions
+\cite{costafont2022}. Motivated by this result, we allow stronger mandate
+levels $G(t)$ to increase an individual's perceived risk.
+
+The term $G(t)$ is added directly to the perceived risk in \eqref{eq:risk}. Therefore, stronger government mandates increase perceived risk and make compliance more attractive. The exact process used to calculate $G(t)$ and determine the current mandate level is described in \Cref{sec:gov}.
+
+\subsection{Local Compliance Information}
+\label{sec:peer}
+
+Empirical evidence supports the inclusion of local peer behavior in an
+individual's compliance decision. Heiman et al.\ found that individuals who
+perceived greater mask wearing among others were themselves more likely to
+wear masks, and that higher perceived peer mask wearing predicted greater
+personal mask wearing at a later time point \cite{heiman2023}. Motivated by
+this result, larger values of $q_i(t)$ increase the attractiveness of
+compliance in the model.
+
+When individual $i$ updates their compliance probability, the decision depends on the stored compliance probabilities of the other individuals in the same building. These probabilities summarize how likely the other occupants are to choose compliance and allow individual $i$ to respond to the local behavioral environment.
+
+\subsubsection{Stored Probabilities of Other Individuals}
+
+Let $p_j(t)\in[0,1]$ denote the stored compliance probability of individual $j$ at time $t$. This value represents the probability that individual $j$ chooses compliance when performing a Bernoulli trial.
+
+Suppose individual $i$ is located in building $b$ at time $t$, and recall that $\mathcal{N}_b(t)$ denotes the set of individuals currently occupying building $b$. The compliance decision of individual $i$ depends on the collection of stored probabilities
+\[
+\{\,p_j(t) : j\in\mathcal{N}_b(t)\setminus\{i\}\,\}.
+\]
+Individual $i$ is excluded because the purpose of this term is to measure the behavior of the other individuals in the building. Since the updating process is asynchronous, the probabilities $p_j(t)$ remain fixed while individual $i$ calculates a new compliance probability.
+
+\subsubsection{Average Local Compliance Probability}
+
+The average local compliance probability for individual $i$ is denoted by $q_i(t)$. If individual $i$ is located in building $b$, then
+\begin{equation}\label{eq:qi}
+q_i(t)
+=
+\frac{1}{N_b(t)-1}
+\sum_{j\in\mathcal{N}_b(t)\setminus\{i\}} p_j(t),
+\end{equation}
+where $N_b(t)=|\mathcal{N}_b(t)|$ is the number of individuals in building $b$ including individual $i$, so that $N_b(t)-1$ is the number of other individuals in the building. Thus, $q_i(t)$ is the average probability that the other individuals comply; it represents peer behavior and social pressure.
+\todo[inline]{AC: We should also make a note here that when $i$ is the only agent in the room, this is defined to be $0$ as is done in the code.}
+
+The variable $q_i(t)$ represents the average probability of compliance among all other individuals in individual $i$'s current building. Since every stored probability satisfies $0\leq p_j(t)\leq 1$, it follows that $0\leq q_i(t)\leq 1$.
+
+A larger value of $q_i(t)$ means that the other occupants are, on average, more likely to comply. This makes compliance more attractive to individual $i$ because the local environment is more supportive of compliant behavior. A smaller value of $q_i(t)$ indicates that the other occupants are less likely to comply, which may reduce the utility individual $i$ receives from choosing compliance.
+
+The use of stored probabilities provides more information than simply counting the number of individuals currently labeled compliant. For example, two compliant individuals with stored probabilities $0.95$ and $0.90$ represent a stronger local tendency toward compliance than two compliant individuals with stored probabilities $0.55$ and $0.51$.
+
+
+\begin{remark}[The single-occupant case]
+\label{rem:single}
+Suppose individual $i$ enters a building $b$ that is otherwise empty. Then we use the same formulas as before, simplified to
+\begin{equation}
+\begin{cases}
+U_{i,C}(t) = \ln(1+G(t)) - F_i  ,
+\\
+U_{i,N}(t) = K_i(t) - G(t).
+\end{cases}
+\end{equation}
+The logic behind this is that, because there are no other individuals to influence individual $i$'s decision, individual $i$ makes their decision solely on the macro-factors, namely the government mandate and the cost.
+These are the same formulas as \eqref{eq:3} and \eqref{eq:4} with $q_i(t)$ and $\varepsilon_{i,b}(t)$ both set equal to zero, because there is no one else in the building.
+\end{remark}
+
+\subsection{Compliance Cost: Financial Burden}
+\label{sec:fin}
+
+Complying with public-health restrictions may create a financial burden by limiting an individual's ability to work, earn income, or participate in normal economic activity. This burden is generally greater for lower-income individuals because they may have fewer financial resources available to absorb the cost of compliance.
+
+Empirical evidence suggests that the economic cost of protective behavior
+is not distributed equally across income groups. Papageorge et al.\ found
+that higher-income individuals were more likely to increase social distancing
+and other protective behaviors during COVID-19, while lower-income workers
+had substantially less access to teleworking \cite{papageorge2021}.
+Motivated by these economic constraints, we assign larger financial burdens
+to lower-income individuals in the model.
+
+The financial burden of individual $i$ is represented by $F_i$ and is determined by the individual's income level. Let $Y_i$ denote the income of individual $i$, and let $Q_{25}$, $Q_{50}$, and $Q_{75}$ denote the first, second, and third income quartiles of the population. We define
+\[
+F_i=
+\begin{cases}
+1, & Y_i<Q_{25},\\
+0.67, & Q_{25}\leq Y_i<Q_{50},\\
+0.33, & Q_{50}\leq Y_i<Q_{75},\\
+0, & Y_i\geq Q_{75}.
+\end{cases}
+\]
+
+Individuals in the lowest income quartile receive the largest financial burden, while individuals in the highest income quartile receive no additional financial burden.
+
+A larger value of $F_i$ decreases the utility of compliance because complying is assumed to be more financially difficult for that individual.
+
+\subsection{Restriction Fatigue}
+\label{sec:fatigue}
+
+Restriction fatigue represents the growing difficulty an individual may experience after repeatedly choosing compliance. It allows past behavior to influence future decisions by making noncompliance more attractive after long periods of compliance.
+
+Empirical studies provide evidence that adherence to prolonged public-health
+restrictions may decline over time. Kim et al.\ observed substantial reductions
+in adherence to socially restrictive behaviors over a nine-month period,
+including avoiding gatherings and public places \cite{kim2023}. Similarly,
+Delussu et al.\ found that adherence to mobility restrictions declined over
+time and that this decline occurred more rapidly under stricter restrictions
+\cite{delussu2022}. Motivated by these findings, we introduce the restriction
+fatigue variable $K_i(t)$, which allows prolonged compliance to make future
+noncompliance increasingly attractive.
+
+Let $K_i(t)$ denote the restriction fatigue of individual $i$ at time $t$. A larger value of $K_i(t)$ indicates that the individual has experienced a longer or more persistent period of compliance.
+Restriction fatigue enters the utility of noncompliance because an individual with greater fatigue may receive more benefit from returning to normal activity. Therefore, as $K_i(t)$ increases, the probability that individual $i$ chooses noncompliance may also increase.
+
+\subsubsection{Fatigue Update Rule}
+\label{sec:fatigue-rule}
+
+Restriction fatigue is updated whenever individual $i$ performs a decision update and completes a Bernoulli trial.
+\todo[inline]{CW: If Fatigue update actually comes immediately after advance ment of the movement clocks, for mathematical logical tightness, we maybe better put this also at the same place in naration. Then you say that $K_i(t)$ will be used later in Section \ref{sec:behavioral} for utility function. Now I get that in story-telling mode, it is very natural to talk about}
+
+If the individual chooses compliance, their fatigue increases by one. If the individual chooses noncompliance, their fatigue decreases by one.
+
+The update rule is
+\begin{equation}\label{eq:fatigue}
+K_i(t^+)=
+\begin{cases}
+K_i(t^-)+1,
+& \text{if individual } i \text{ chooses compliance},\\
+\max\left\{K_i(t^-)-1,\,0\right\},
+& \text{if individual } i \text{ chooses noncompliance}.
+\end{cases}
+\end{equation}
+
+Here, $t^-$ denotes the time immediately before the decision, while $t^+$ denotes the time immediately after the decision. Thus, repeated compliance causes fatigue to accumulate, while periods of noncompliance allow fatigue to decrease.
+
+\begin{remark}
+Restriction fatigue cannot be negative. Therefore, the model requires
+\begin{equation}
+ K_i(t)\geq 0
+\end{equation}
+for every individual $i$ and every time $t$. The term $\max\{K_i(t^-)-1,\,0\}$ ensures that fatigue stops decreasing once it reaches zero. This prevents the model from assigning a negative fatigue level, which would have no meaningful interpretation.
+\end{remark}
+
+\subsection{Bounded Rationality and the Logit Response}
+\label{sec:logit}
+
+Game theory gives us a method to model human behavior while maintaining bounded rationality. Bounded rationality simply means that individuals do not fully understand the situation they are in and sometimes make decisions that are illogical. Classical game-theoretic models often represent players as selecting
+utility-maximizing strategies. To allow for imperfect or noisy decision
+making, we instead use a logit response rule. Logit quantal response models
+assign greater probability to strategies with larger utilities while still
+allowing lower-utility choices to occur \cite{mckelvey1995}. This provides
+a mechanism for incorporating boundedly rational behavior into the model. The logit response function is how we turn our ``game'' from a pure game into a mixed game (see \Cref{rem:rational}).
+
+Given the utilities $U_{i,C}(t)$ and $U_{i,N}(t)$ of \eqref{eq:3} and \eqref{eq:4}, the probability that individual $i$ complies is defined by
+\begin{equation}\label{eq:logit}
+p_i(t)=\frac{e^{\lambda U_{i,C}(t)}}{e^{\lambda U_{i,C}(t)}+e^{\lambda U_{i,N}(t)}}
+= \frac{1}{1 + e^{\lambda (U_{i,N}(t)-U_{i,C}(t))}},
+\end{equation}
+where the second form follows by multiplying the numerator and the denominator by $e^{-\lambda U_{i,C}(t)}$. Notice that this turns our utility functions into a probability by something similar to a soft-max function. The parameter $\lambda\geq 0$ is the noise factor, and as $\lambda \rightarrow \infty$ our game becomes closer to a pure game.
+
+It is easy to verify a few important properties of the logit response function. First, if $\lambda=0$, then the model becomes completely random. Regardless of the values of the utility functions, individual $i$ has a 50\% probability of complying and a 50\% probability of not complying.
+
+Second, as $\lambda\rightarrow\infty$, the individual approaches a pure best response. If $U_{i,C}(t)>U_{i,N}(t)$, then $p_i(t)\rightarrow 1$. If $U_{i,N}(t)>U_{i,C}(t)$, then $p_i(t)\rightarrow 0$. If $U_{i,C}(t)=U_{i,N}(t)$, then $p_i(t)=1/2$ for every value of $\lambda$.
+
+For any finite value of $\lambda>0$, the probability of choosing an action is tilted toward the action with the higher utility, but the individual is not certain to choose it.
+
+Once $p_i(t)$ has been computed, individual $i$ performs a Bernoulli trial with success probability $p_i(t)$: success means compliance and failure means noncompliance. The outcome sets the realized behavioral state $B_i(t)$, the restriction fatigue is updated according to \eqref{eq:fatigue}, and the value $p_i(t)$ is stored so that it enters the peer term \eqref{eq:qi} of the next individual who enters the same building. A fully worked decision event, with numerical values, is given in Section S2 of the Supplementary Material.
+
+\begin{remark}[Strategic dependence and asynchronous updating]
+\label{rem:async}
+An individual's compliance decision depends partly on the stored compliance probabilities of the other individuals in the same building. If individual $i$ is in building $b$, then their decision depends on the values $p_j(t)$ for all $j\in\mathcal{N}_b(t)$ with $j\neq i$.
+
+The decision process is asynchronous. When individual $i$ enters a building, the probabilities of the individuals already present remain fixed. Only individual $i$ updates their compliance probability and performs a Bernoulli trial to determine their new compliance status.
+
+If individual $i$ finds nobody but themselves in the building, simplified utility functions keep the game the same; see \Cref{rem:single}.
+
+It should be noted that the model no longer solves for a Nash equilibrium or a logit equilibrium. Instead, the model uses an asynchronous logit-response process. When individual $i$ enters a building, the stored compliance probabilities of the other individuals remain fixed, and only individual $i$ updates their probability of compliance using those values. Therefore, the individuals do not update simultaneously, and the resulting probability profile is not required to be an equilibrium.
+\end{remark}
+
+\begin{remark}[Nash equilibrium]
+\label{rem:nash}
+We no longer use the Nash equilibrium, but we state its definition because it was the original motivation for using game theory.
+An action profile $a^*=(a_1^*,\ldots,a_n^*)$ is a Nash equilibrium if no player can increase their utility by changing their action while every other player's action remains fixed. Mathematically, $a^*$ is a Nash equilibrium if, for every player $i\in N$ and every alternative action $a_i\in A_i$,
+\[
+U_i(a_i^*,a_{-i}^*)\geq U_i(a_i,a_{-i}^*).
+\]
+Here, $a_{-i}^*$ represents the equilibrium actions of all players other than player $i$.
+\end{remark}
+
+\begin{remark}[Pure versus mixed games, and rationality]
+\label{rem:rational}
+\textbf{Pure:} A pure game is a game with discrete decisions in which the strategy with the highest utility is chosen.
+
+\textbf{Mixed:} A mixed game is a more continuous game in which each strategy is assigned a probability of being chosen, based on the relative distance between the utility values of the strategies.
+
+\textbf{Definition.} A person is rational if two axioms are upheld: completeness and transitivity.
+
+Suppose we have strategies $\mathcal{S} = \{A,B,C\}$ and $U: \mathcal{S} \rightarrow \mathbb{R}$ is a utility function which describes a person's benefit when performing a strategy.
+
+\textbf{Completeness:} Completeness simply means that all decisions $U(A), U(B), U(C)$ must have a real number assigned to them to measure the benefit.
+
+\textbf{Transitivity:} Suppose $U(A) \leq U(B)$ and $U(B) \leq U(C)$. By transitivity of the real numbers, $U(A) \leq U(C)$. In game theory this means that decision $B$ is preferred over decision $A$, decision $C$ is preferred over decision $B$, and, by the axiom of transitivity, decision $C$ must be preferred over decision $A$.
+
+If a person satisfies completeness and transitivity for all decisions made, they are perfectly rational.
+
+We introduce bounded rationality because individuals do not always see the entire picture. Although transitivity should logically hold every time, our limited understanding of a situation may occasionally cause the rationality axioms to fail. This models the fact that individuals cannot make perfect decisions and do not have all the information all of the time.
+\end{remark}
+
+
+\section{Government Intervention and Disease Dynamics}
+\label{sec:gov-disease}
+
+\subsection{Government Intervention}
+\label{sec:gov}
+
+This subsection describes the motivation behind the government mandate clock and how the government makes its decision.
+
+Government responses to an epidemic may vary in intensity as epidemic
+conditions change. Ma et al.\ analyzed policy responses across 148 countries
+using the Oxford Stringency Index and found substantial variation in the speed
+with which governments escalated to high levels of intervention
+\cite{ma2021}. In particular, later responses during the COVID-19 pandemic
+reached high stringency levels over substantially shorter time intervals.
+Motivated by this responsive-policy framework, we allow the government's
+mandate level to depend dynamically on current epidemic and behavioral
+conditions.
+
+\subsubsection{Government Policy Pressure}
+\label{sec:pressure}
+
+The government considers a policy pressure score when determining its mandate level. The pressure score is defined by
+\begin{equation}\label{eq:pressure}
+P_G(t)=\frac{I(t)}{M}\left(1-\frac{M_C^F(t)}{M}\right),
+\end{equation}
+where $I(t)$ is the number of infectious individuals, and $M$ is the total population size. We assume that the government can only measure the compliance of agents who are outside of the home, thus $M_C^F(t)$ is the number of currently complying individuals on the public floor.
+\todo[inline]{CW: I am guessing that you will need to create the notation$N_U (t)$, as later on, when we show the output figures.... Also if we do so, we may need to talk about this right when you introduce the 12 sub compartments.}
+
+The term $I(t)/M$ represents the proportion of the population that is infectious, while $1-M_C(t)/M$ represents the proportion of the population that is not complying. Therefore, the pressure score increases when infection prevalence is high and compliance is low.
+
+\subsubsection{Mandate Levels}
+\label{sec:mandate}
+
+Government interventions can be represented by varying levels of policy
+intensity. For example, the Oxford COVID-19 Stringency Index summarizes
+multiple government interventions on an ordered scale from 0 to 100
+\cite{hale2021,roser2021}. Motivated by this type of graded policy
+classification, we represent government intervention using four discrete
+mandate levels,
+\[
+G(t)\in\{0,1,2,3\},
+\]
+corresponding respectively to no, low, moderate, and strong intervention.
+The mandate level is determined from the policy pressure score by
+\begin{equation}\label{eq:mandate}
+G(t)=
+\begin{cases}
+0, & 0\leq P_G(t)<0.0001,\\
+1, & 0.0001\leq P_G(t)<0.0002,\\
+2, & 0.0002\leq P_G(t)<0.0015,\\
+3, & P_G(t)\geq 0.0015.
+\end{cases}
+\end{equation}
+
+\todo[inline]{The threshold values in \eqref{eq:mandate} are still being tested and may change.}
+
+Mandate level $0$ represents no government mandate signal, level $1$ represents a low mandate signal, level $2$ represents a moderate mandate signal, and level $3$ represents a strong mandate signal. Since $G(t)$ enters every individual's perceived risk, a higher mandate level signals that the epidemic conditions are more serious and increases the perceived benefit of compliance.
+
+\subsubsection{Government Clock}
+\label{sec:govclock}
+
+The government updates its mandate level according to a government clock. The rate of this clock depends on the current mandate level $G(t)$. The frequency of governmental review increased as the COVID-19 outbreak
+became more severe. For example, early SAGE meetings in January 2020 were
+separated by several days, while meetings became substantially more frequent
+during February and March as the outbreak escalated
+\cite{sagejan2020,sagefeb2020}. By mid-March, the UK government had also
+announced daily coronavirus press conferences supported by scientific and
+medical advisers \cite{primeministerdrive2020}. Motivated by this pattern,
+we allow the government review rate to increase with the current mandate
+level $G(t)$.
+
+The rate of the government clock is a function of $G(t)$, defined by
+\begin{equation}\label{eq:govrate}
+\alpha_G(G(t))=
+\begin{cases}
+\frac{1}{7}, & \text{if } G(t)=0,\\
+\frac{1}{5}, & \text{if } G(t)=1,\\
+\frac{1}{3}, & \text{if } G(t)=2,\\
+1, & \text{if } G(t)=3.
+\end{cases}
+\end{equation}
+
+Since time is measured in days, these rates correspond to average waiting times of seven days, five days, three days, and one day, respectively.
+Given the current mandate level, the waiting time until the next government review is
+\[
+T^{G}\sim\operatorname{Exp}\left(\alpha_G(G(t))\right).
+\]
+
+When the government clock rings at time $t$, the government first recalculates the policy pressure score $P_G(t^-)$ from \eqref{eq:pressure}. The new mandate level $G(t^+)$ is then determined from $P_G(t^-)$ by the rule \eqref{eq:mandate}. After the new value of $G(t^+)$ is determined, the government clock rate is recalculated as $\alpha_G(G(t^+))$ using \eqref{eq:govrate}.
+
+A new government waiting time is then generated from
+\[
+T^{G}_{\mathrm{new}}\sim\operatorname{Exp}\left(\alpha_G(G(t^+))\right).
+\]
+
+Therefore, each time the government clock rings, the model recalculates the pressure score, updates the mandate level, updates the government clock rate, and generates the waiting time until the next government review.
+
+\subsection{SEIRS Disease Dynamics}
+\label{sec:seirs}
+
+\todo[inline]{CW: Maybe the name of the complete model can be ALR-SEIRS-IPC model? Here IPC means independent Poisson clocks}
+
+The four disease compartments are susceptible, exposed, infectious, and recovered. These are the health states $H_i(t)\in\{S,E,I,R\}$ of \Cref{sec:states}, with population counts $S(t)$, $E(t)$, $I(t)$, $R(t)$ as defined in \Cref{sec:population}. Each disease transition is driven by its own Poisson clock, described next.
+
+\subsubsection{Susceptible-to-Exposed Contact Clock}
+\label{sec:sus}
+
+Every individual in a susceptible compartment receives this clock. When the clock rings, the susceptible individual $i$ becomes exposed to the virus with probability $s_i(t)$, which depends on the individual's behavioral state:
+\begin{equation}\label{eq:stn}
+s_i(t) =
+\begin{cases}
+1-e^{-\frac{I(t)}{M}\varepsilon_{i,b}(t)}, & \text{if } B_i(t)=N,\\[6pt]
+1-e^{-\frac{I(t)}{2M}\varepsilon_{i,b}(t)}, & \text{if } B_i(t)=C,
+\end{cases}
+\end{equation}
+\todo[inline]{Do we have any sort of justification as to why exposure probability would be halved if the agent is compliant?}
+where $I(t)/M$ is the infection prevalence at time $t$ and $\varepsilon_{i,b}(t)$ is the proportion of infectious individuals in the building at time $t$, as defined in \eqref{eq:1}. Thus, the exposure probability is smaller when the individual is complying.
+\todo[inline]{CW: It seems that [unfinished note]}
+
+
+\todo[inline]{CW: Do we want to put the divided by 2 on the exponent? I am  not sure; only a spontaneous thought. So we can think about  using Taylor expansion to see what this probability is, when N is very large and terms like $1/N^2 $ can  be ignored.}
+
+
+The susceptible contact clock determines when a susceptible individual interacts with another
+individual in the same public building. A contact does not automatically cause the susceptible
+individual to become exposed. Instead, after a contact occurs, the disease status of the
+contacted individual is checked. If the contacted individual is infectious, then a Bernoulli trial
+determines whether transmission occurs.
+
+\todo[inline]{CW: So the Bernoulli trial is with probability defined in \eqref{eq:stn} and \eqref{eq:stn}, I assume? So just to make sure I understand this correctly: the first layer is that S needs to meet someone who is I, and then the second layer is what comes out the Bernoulli trials. If so, then we need to be very precise about the mechanism: Upon  an advancement of a Susceptible contact clock, the clock carrier will then choose another person in the same building, uniformly and randomly (if nobody then fine). Then we check what health status the chosen person is. If he is I, then we perform the Bernoulli trial.}
+
+Mossong et al.\ reported an average of 13.4 contacts with different
+individuals per participant per day \cite{mossong2008}. Motivated by this
+empirical estimate, we assume approximately 13 contacts per individual per day. Thus, the average waiting time between contacts is
+\[
+\frac{24}{13}
+\]
+hours. Let $\alpha_{SE}$ be the rate at which the susceptible contact clock rings; since time is measured in days, $\alpha_{SE}=13$, that is, $13/24$ per hour. Therefore, for each susceptible individual $i$ currently on the floor, the time until
+their next contact is
+\[
+T_i^{SE}
+\sim
+\operatorname{Exp}(\alpha_{SE}).
+\]
+
+The expected waiting time until the next contact is
+\[
+\mathbb{E}\left[T_i^{SE}\right]
+=
+\frac{1}{\alpha_{SE}}
+=
+\frac{1}{13}\text{ days}
+=
+\frac{24}{13}\text{ hours}.
+\]
+Thus, a susceptible individual has one contact approximately every $\frac{24}{13}$
+hours, or about every $1.85$ hours, on average.
+
+In summary, when this type of clock rings for individual $i$, we assess individual $i$'s probability of becoming exposed, $s_i(t)$, and then run a Bernoulli trial in which $s_i(t)$ is the probability that individual $i$ becomes exposed and $1-s_i(t)$ is the probability that they are not exposed to the virus. If individual $i$ is susceptible and in the private home, the probability $s_i(t)$ is clearly zero.
+
+\subsubsection{Exposed-to-Infectious Transition}
+\label{sec:ei}
+
+An exposed individual has contracted the disease but is not yet infectious. Let $T_i^{EI}$ denote the waiting time until individual $i$ becomes infectious. This waiting time is exponentially distributed with rate $\alpha_{EI}$:
+\[
+T_i^{EI}\sim\operatorname{Exp}(\alpha_{EI}).
+\]
+
+The CDC reports that the estimated incubation period for COVID-19 ranges
+from 2 to 14 days, with a median of approximately 5 days
+\cite{cdcincubation}. We therefore use 5 days as the characteristic
+incubation time in the model.
+\[
+\frac{1}{\alpha_{EI}}=5,
+\qquad
+\alpha_{EI}=\frac{1}{5}.
+\]
+
+Therefore,
+\[
+T_i^{EI}\sim\operatorname{Exp}\left(\frac{1}{5}\right).
+\]
+
+This clock is assigned to every individual in the exposed compartment $E$.
+
+When this clock rings, the individual's location and behavioral status remain unchanged, and the individual moves from their exposed compartment to the corresponding infectious compartment.
+
+\subsubsection{Infectious-to-Recovered Transition}
+\label{sec:ir}
+
+An infectious individual enters the recovered state after completing the infectious period. Let $T_i^{IR}$ denote the waiting time until individual $i$ recovers. This waiting time is exponentially distributed with rate $\alpha_{IR}$:
+\[
+T_i^{IR}\sim\operatorname{Exp}(\alpha_{IR}).
+\]
+
+The CDC reports that individuals with COVID-19 may be infectious beginning
+1--2 days before symptom onset and for up to 8--10 days after symptoms begin
+\cite{cdcyellowbook}. Motivated by this empirical time scale, we use nine
+days as the characteristic infectious period in the model.
+\[
+\frac{1}{\alpha_{IR}}=9,
+\qquad
+\alpha_{IR}=\frac{1}{9}.
+\]
+
+Therefore,
+\[
+T_i^{IR}\sim\operatorname{Exp}\left(\frac{1}{9}\right).
+\]
+
+This clock is assigned to every individual in the infectious compartment $I$.
+
+When this clock rings, the individual's location and behavioral status remain unchanged, and the individual moves from their infectious compartment to the corresponding recovered compartment.
+
+
+\subsubsection{Recovered-to-Susceptible Transition}
+\label{sec:rs}
+
+Let $T_i^{RS}$ be the waning-immunity time after which individual $i$ moves from the recovered compartment back to the susceptible compartment. Evidence from Goldberg et al.\ indicates that protection following
+SARS-CoV-2 infection wanes over time, with confirmed reinfections observed
+among recovered, unvaccinated individuals within the 4--6 month period
+following infection \cite{goldberg2022}. Motivated by this time scale, we
+choose 150 days, or approximately five months, as the characteristic
+waning-immunity time in the model. Thus, with rate $\alpha_{RS}=1/150$,
+\[
+T_i^{RS} \sim \operatorname{Exp}(\alpha_{RS}) = \operatorname{Exp}\left(\frac{1}{150}\right).
+\]
+
+This clock is assigned to every individual in the recovered compartment $R$. When this clock rings, individual $i$ moves from the recovered compartment back to the susceptible compartment; the individual's location and behavioral status remain unchanged.
+
+
+\section{Event-Driven Simulation}
+\label{sec:simulation}
+
+\subsection{Poisson Clocks and Exponential Waiting Times}
+\label{sec:clocks}
+
+\Cref{tab:clocks} lists the nine types of Poisson clocks in the model, the compartment an individual must be in to carry each clock, the rate symbol, the waiting-time random variable, and the mean waiting time. Throughout, $\alpha_{BB}$, $\alpha_{BH}$, $\alpha_{HB}$, $\alpha_{\mathrm{sun}}$, $\alpha_{SE}$, $\alpha_{EI}$, $\alpha_{IR}$, $\alpha_{RS}$, and $\alpha_G$ denote clock rates, and the corresponding random variables are the waiting times until those events occur. For example, $\alpha_{BB}$ is the rate of the building-to-building movement clock, while $T_i^{BB}$ is the random waiting time until individual $i$'s next building-to-building movement.
+
+\todo[inline]{CW: I think that the event of updating the fatigue level is missing}
+
+\begin{table}[H]
+\centering
+\caption{The nine types of Poisson clocks. Mean waiting times are the values stated in the defining subsections; time is measured in days unless hours are indicated.}
+\label{tab:clocks}
+\footnotesize
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.1cm} >{\raggedright\arraybackslash}p{2.4cm} c c >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.5cm}@{}}
+\toprule
+\textbf{Clock} & \textbf{Active for} & \textbf{Rate} & \textbf{Waiting time} & \textbf{Event} & \textbf{Mean waiting time} \\
+\midrule
+Building-to-building & individuals on the public floor & $\alpha_{BB}$ & $T_i^{BB}$ & Individual $i$ moves from one public building to another & $1/\alpha_{BB}=0.4$ days \\
+Building-to-home & individuals on the public floor & $\alpha_{BH}(Z)$ & $T_i^{BH}$ & Individual $i$ leaves the public floor and returns to their private home & depends on hour of day \\
+Home-to-building & individuals at home & $\alpha_{HB}(Z)$ & $T_i^{HB}$ & Individual $i$ leaves their private home and enters a public building & depends on hour of day \\
+Sun (day--night) & entire system & $\alpha_{\mathrm{sun}}$ & $T^{\mathrm{sun}}$ & Refreshes $\alpha_{BH}$ and $\alpha_{HB}$ from the hourly lookup tables & $1$ h \\
+Susceptible contact & susceptible individuals on the public floor
+%CWang: or you can say S agents
+& $\alpha_{SE}$ & $T_i^{SE}$ & Susceptible individual $i$ has a possible infectious contact & $24/13\approx 1.85$ h \\
+Incubation & exposed individuals & $\alpha_{EI}$ & $T_i^{EI}$ & Exposed individual $i$ becomes infectious ($E\to I$) & $1/\alpha_{EI}=5$ days \\
+Recovery & infectious individuals & $\alpha_{IR}$ & $T_i^{IR}$ & Infectious individual $i$ recovers ($I\to R$) & $9$ days \\
+Waning immunity & recovered individuals & $\alpha_{RS}$ & $T_i^{RS}$ & Recovered individual $i$ becomes susceptible again ($R\to S$) & $150$ days \\
+Government & entire system & $\alpha_G(G(t))$ & $T^{G}$ & Recalculates $P_G(t)$ and updates the mandate level $G(t)$ & depends on $G(t)$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Recall that the government clock and the sun clock are system-level clocks rather than individual-level clocks. The government waiting time is written as $T^{G}\sim \operatorname{Exp}(\alpha_G(G(t)))$, where the rate $\alpha_G(G(t))$ depends on the current government mandate level $G(t)$, and the sun waiting time is $T^{\mathrm{sun}}\sim\operatorname{Exp}(\alpha_{\mathrm{sun}})$ with $\alpha_{\mathrm{sun}}=1$ per hour.
+
+\subsection{Merged Event Rate and Event Selection}
+\label{sec:merged}
+
+At any time $t$, all active Poisson clocks are merged into one system-wide Poisson clock. The rate of this merged clock is the sum of all active event rates. This total rate is denoted by $\Lambda(t)$.
+
+Recall that $M_F(t)$ is the number of individuals on the public floor, $M_P(t)$ is the number of individuals in the private home compartment, and $E(t)$, $I(t)$, and $R(t)$ are the numbers of exposed, infectious, and recovered individuals. In addition, let $S_F(t)$ be the number of susceptible individuals on the public floor, since only these individuals carry an active contact clock. Then the merged event rate is
+\begin{equation}\label{eq:Lambda}
+\begin{aligned}
+\Lambda(t)
+={}&
+M_F(t)\alpha_{BB}
++
+M_F(t)\alpha_{BH}
++
+M_P(t)\alpha_{HB}
++
+\alpha_{\mathrm{sun}}
+\\
+&+
+S_F(t)\alpha_{SE}
++
+E(t)\alpha_{EI}
++
+I(t)\alpha_{IR}
++
+R(t)\alpha_{RS}
++
+\alpha_G(G(t)),
+\end{aligned}
+\end{equation}
+where $\alpha_{BH}$ and $\alpha_{HB}$ are the hourly values most recently set by the sun clock (\Cref{sec:sun}).
+
+\todo[inline]{JW: Same here there is actually a lot of places to change $M_F(t)$ or something of that same kind to $M_F(t)$}
+
+The merged waiting time is then $T_{\text{next}}\sim \operatorname{Exp}(\Lambda(t))$. When this clock rings, one event type is selected with probability proportional to its active rate. For example, the probability that the next event is a building-to-building movement is $M_F(t)\alpha_{BB}/\Lambda(t)$, while the probability that the next event is a government update is $\alpha_G(G(t))/\Lambda(t)$.
+
+If the selected event type is an individual-level event, then one eligible individual is chosen from the corresponding group. For example, if the building-to-building movement event is selected, then one individual on the floor is chosen. If the $S\to E$ event is selected, then one susceptible individual on the floor is chosen, and the exposure probability is computed for that individual. If the exposure trial succeeds, the individual moves from $S$ to $E$; otherwise, the individual remains susceptible.
+
+After the selected event is completed, the locations, compartments, building populations, and government mandate level may change. Therefore, the active rates and the merged rate $\Lambda(t)$ must be recalculated after every event.
+
+\subsubsection{Probability of Each Event Type}
+
+Once the merged Poisson clock rings, the model must determine which type of event occurs.
+The probability that a particular event type is selected is equal to that event type's active
+rate divided by the total merged rate $\Lambda(t)$. The active rates and selection probabilities of all event types are listed in \Cref{tab:select}.
+
+\begin{table}[H]
+\centering
+\caption{Active rates and selection probabilities of the event types.}
+\label{tab:select}
+\small
+\renewcommand{\arraystretch}{1.8}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X l l@{}}
+\toprule
+\textbf{Event type}
+& \textbf{Active for}
+& \textbf{Active rate}
+& \textbf{Selection probability} \\
+\midrule
+Building-to-building movement
+& Individuals on the public floor
+& $M_F(t)\alpha_{BB}$
+& $\dfrac{M_F(t)\alpha_{BB}}{\Lambda(t)}$ \\
+Building-to-home movement
+& Individuals on the public floor
+& $M_F(t)\alpha_{BH}$
+& $\dfrac{M_F(t)\alpha_{BH}}{\Lambda(t)}$ \\
+Home-to-building movement
+& Individuals at home
+& $M_P(t)\alpha_{HB}$
+& $\dfrac{M_P(t)\alpha_{HB}}{\Lambda(t)}$ \\
+Sun-clock update
+& Entire system
+& $\alpha_{\mathrm{sun}}$
+& $\dfrac{\alpha_{\mathrm{sun}}}{\Lambda(t)}$ \\
+Susceptible contact event
+& Susceptible individuals on the public floor
+& $S_F(t)\alpha_{SE}$
+& $\dfrac{S_F(t)\alpha_{SE}}{\Lambda(t)}$ \\
+Exposed-to-infectious transition
+& Exposed individuals
+& $E(t)\alpha_{EI}$
+& $\dfrac{E(t)\alpha_{EI}}{\Lambda(t)}$ \\
+Infectious-to-recovered transition
+& Infectious individuals
+& $I(t)\alpha_{IR}$
+& $\dfrac{I(t)\alpha_{IR}}{\Lambda(t)}$ \\
+Recovered-to-susceptible transition
+& Recovered individuals
+& $R(t)\alpha_{RS}$
+& $\dfrac{R(t)\alpha_{RS}}{\Lambda(t)}$ \\
+Government update
+& Entire system
+& $\alpha_G(G(t))$
+& $\dfrac{\alpha_G(G(t))}{\Lambda(t)}$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+These probabilities sum to one because $\Lambda(t)$ is defined as the sum of all active
+event rates. Thus, after the merged clock rings, the model selects one event type according
+to the probability distribution shown in \Cref{tab:select}.
+
+If an event type has no eligible individuals, then its active rate is zero, so that event type
+cannot be selected. For example, if there are no exposed individuals, then $E(t)=0$, and
+the probability of an $E \rightarrow I$ transition is zero.
+
+After the event type is selected, the model then chooses the specific individual who will
+experience the event. This individual-level selection is spelled out in Algorithm S1 of the Supplementary Material.
+
+\subsection{Initialization}
+\label{sec:init}
+\subsubsection{Government Rate and Mandate Level}
+
+At the beginning of the simulation, we assume that there is no active government mandate.
+Therefore, the initial government mandate level is set to
+\[
+G(0)=0.
+\]
+
+This means the government begins in the lowest mandate state. Since the government clock
+rate depends on the current mandate level, the initial government clock rate is determined
+by the value of $G(0)$ through \eqref{eq:govrate}. Since $G(0)=0$, the initial government clock rate is
+\[
+\alpha_G(G(0))=\alpha_G(0)=\frac{1}{7}.
+\]
+
+
+\subsubsection{Initial Location Compartments and Compliance Probability}
+
+At the beginning of the simulation, all individuals start in their private home. Their realized behavioral state is initially noncompliant ($B_i(0)=N$), even though they are at home; it becomes compliant the first time the individual leaves the floor for home. We begin by fixing every individual's compliance probability at
+\[
+p_i(0) = 0.
+\]
+The initial value of $p_i(0)$ does not matter much, because once an individual moves to the floor they update their probability based on their surroundings.
+
+A number $I_0$ of individuals, chosen uniformly at random, are infectious at $t=0$. Every susceptible member of an initially infectious individual's household is immediately exposed, following the household rule of \Cref{sec:states}. All remaining individuals are susceptible.
+
+\subsubsection{Financial Burden Initialization}
+
+The income quartile boundaries are an input of the simulation, chosen for the city or region being modeled, and 25 percent of the population $M$ falls in each quartile. The value of $F_i$ therefore varies across individuals such that a quarter of the population is in each bracket.
+
+\subsection{Algorithm Summary}
+\label{sec:algorithm}
+
+The simulation is event-driven: time advances from one Poisson-clock event to the next rather than in fixed time steps. Starting from the initial state of \Cref{sec:init}, each iteration (i) computes the current compartment counts and the merged rate $\Lambda(t)$ of \eqref{eq:Lambda}, (ii) draws the waiting time $\Delta t\sim\operatorname{Exp}(\Lambda(t))$ and advances $t\leftarrow t+\Delta t$, (iii) selects the event type with probability proportional to its active rate and then a uniformly random eligible individual, (iv) executes the event, which for the two decision clocks (building-to-building and home-to-building) includes the logit update \eqref{eq:logit}, the Bernoulli trial, and the fatigue update \eqref{eq:fatigue}, and for the government clock includes the pressure score \eqref{eq:pressure}, the mandate rule \eqref{eq:mandate}, and the rate update \eqref{eq:govrate}, and (v) records the compartment counts. The loop stops when $t$ reaches the final time $T_{\max}$. The complete pseudocode is given as Algorithm S1 in Section S1 of the Supplementary Material.
+
+
+\section{Numerical Results}
+\label{sec:numerics}
+
+\todo[inline]{Section skeleton added in the restructuring pass: experiment descriptions and placeholders only. Figures are to be generated with the simulation codes (\texttt{codes/python\_code/simulation.py}, \texttt{codes/cpp\_code/simulation.cpp}) and inserted by the authors.}
+
+In this section we present simulation results of the model. All simulations use the event-driven algorithm of \Cref{sec:simulation}; the implementation is available in Python and C++.
+\todo[inline]{Add repository URL / availability statement for the simulation code.}
+
+\subsection{Simulation Setup and Parameters}
+\label{sec:setup}
+
+Unless stated otherwise, every experiment uses the parameter values listed in \Cref{tab:params}. Time is measured in days. The population size $M$, the number of public buildings $K$, the number of initially infectious individuals $I_0$, the final time $T_{\max}$, and the income distribution used to assign the financial burden $F_i$ are experiment-specific and are stated with each experiment.
+
+\begin{table}[H]
+\centering
+\caption{Model parameters used in the numerical experiments. Values are those stated in \Cref{sec:model,sec:behavioral,sec:gov-disease}; the last column points to the defining subsection.}
+\label{tab:params}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X l l@{}}
+\toprule
+\textbf{Symbol} & \textbf{Meaning} & \textbf{Value} & \textbf{Defined in} \\
+\midrule
+$M$ & population size & experiment-specific & \Cref{sec:population} \\
+$K$ & number of public buildings & experiment-specific & \Cref{sec:graph} \\
+$I_0$ & initially infectious individuals & experiment-specific & \Cref{sec:init} \\
+$T_{\max}$ & final simulation time (days) & experiment-specific & \Cref{sec:init} \\
+$\alpha_{BB}$ & building-to-building movement rate & $2.5$ day$^{-1}$ & \Cref{sec:btb} \\
+$\alpha_{BH}(h)$ & building-to-home rate at hour $h$ & hourly lookup table & \Cref{sec:sun} \\
+$\alpha_{HB}(h)$ & home-to-building rate at hour $h$ & hourly lookup table & \Cref{sec:sun} \\
+$\alpha_{\mathrm{sun}}$ & sun-clock update rate & $24$ day$^{-1}$ ($1$ h$^{-1}$) & \Cref{sec:sun} \\
+$\alpha_{SE}$ & susceptible contact rate & $13$ day$^{-1}$ (one contact per $24/13$ h) & \Cref{sec:sus} \\
+$\alpha_{EI}$ & exposed-to-infectious rate & $1/5$ day$^{-1}$ & \Cref{sec:ei} \\
+$\alpha_{IR}$ & infectious-to-recovered rate & $1/9$ day$^{-1}$ & \Cref{sec:ir} \\
+$\alpha_{RS}$ & recovered-to-susceptible rate & $1/150$ day$^{-1}$ & \Cref{sec:rs} \\
+$\alpha_G(G)$ & government review rate, $G=0,1,2,3$ & $1/7,\ 1/5,\ 1/3,\ 1$ day$^{-1}$ & \Cref{sec:govclock} \\
+$P_G$ thresholds & mandate levels $0/1/2/3$ & $10^{-4},\ 2\times 10^{-4},\ 1.5\times 10^{-3}$ (under testing) & \Cref{sec:mandate} \\
+$F_i$ & financial burden by income quartile & $1,\ 0.67,\ 0.33,\ 0$ & \Cref{sec:fin} \\
+$\lambda$ & logit noise factor & $1$ & \Cref{sec:logit} \\
+$G(0)$ & initial mandate level & $0$ & \Cref{sec:init} \\
+$p_i(0)$ & initial compliance probability & $0$ & \Cref{sec:init} \\
+$K_i(0)$ & initial restriction fatigue & $0$ & \Cref{sec:init} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+\todo[inline]{Restructuring pass: the table copies the values as stated in the defining subsections. The value $\lambda=1$ is taken from the worked example. $K_i(0)=0$ is implied by the fatigue rule but not stated in \Cref{sec:init}.}
+
+\subsection{Baseline Epidemic Dynamics}
+\label{sec:baseline}
+
+\todo[inline]{Planned experiment: one baseline run with the parameters of \Cref{tab:params}; report $S(t)$, $E(t)$, $I(t)$, $R(t)$, the mandate level $G(t)$, and the number of complying individuals $M_C(t)$ versus time, and describe the interplay between the epidemic wave, the government response, and the compliance oscillations driven by the day--night clock. A first C++ run (2026-07-27, $M=10^6$, $K=10^4$, $I_0=6\times 10^4$, $T_{\max}=1008$ h, seed 1) is saved in \texttt{codes/cpp\_code/saved\_simulation\_plots/}.}
+
+\begin{figure}[H]
+\centering
+% \includegraphics[width=\textwidth]{codes/cpp_code/saved_simulation_plots/2026-07-27_first-run-warren/plots.png}
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{2.5cm}\textit{Placeholder: baseline run.}\\ Six panels: $S(t)$, $E(t)$, $I(t)$, $R(t)$, mandate level $G(t)$, number complying $M_C(t)$.\vspace{2.5cm}}}
+\caption{Baseline simulation. Time evolution of the disease compartments $S(t)$, $E(t)$, $I(t)$, $R(t)$, the government mandate level $G(t)$, and the number of complying individuals $M_C(t)$. Parameters as in \Cref{tab:params}.}
+\label{fig:baseline}
+\end{figure}
+
+\subsection{Effect of the Rationality Parameter \texorpdfstring{$\lambda$}{lambda}}
+\label{sec:exp-lambda}
+
+\todo[inline]{Planned experiment: vary the noise factor $\lambda\in\{0,\,0.5,\,1,\,2,\,5\}$ in \eqref{eq:logit} with all other parameters fixed. Expected outcome: $\lambda=0$ gives purely random compliance (probability $1/2$), while large $\lambda$ approaches the pure best response; compare peak infection $\max_t I(t)$, the time of the peak, and the average compliance fraction $M_C(t)/M$.}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{2cm}\textit{Placeholder: $I(t)$ and $M_C(t)/M$ for several values of $\lambda$.}\vspace{2cm}}}
+\caption{Effect of the logit noise factor $\lambda$ on the infectious population $I(t)$ (left) and on the compliance fraction $M_C(t)/M$ (right).}
+\label{fig:lambda}
+\end{figure}
+
+\subsection{Effect of Government Intervention}
+\label{sec:exp-gov}
+
+\todo[inline]{Planned experiment: compare (i) the full model, (ii) the model with the government frozen at $G(t)\equiv 0$, and (iii) the model with $G(t)\equiv 3$. Report $I(t)$, $G(t)$, and $M_C(t)$, and quantify the reduction of the epidemic peak due to the adaptive mandate.}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{2cm}\textit{Placeholder: adaptive government versus fixed mandate levels.}\vspace{2cm}}}
+\caption{Effect of government intervention: adaptive mandate versus fixed mandate levels $G\equiv 0$ and $G\equiv 3$.}
+\label{fig:gov}
+\end{figure}
+
+\subsection{Effect of Income Distribution and Financial Burden}
+\label{sec:exp-income}
+
+\todo[inline]{Planned experiment: vary the income distribution used to assign $F_i$ (e.g. the standard deviation of income, or a uniform $F_i\equiv 0$ population) and report the compliance fraction by income quartile and the resulting $I(t)$. Optional additional experiment: the role of restriction fatigue (fatigue switched off versus on).}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{2cm}\textit{Placeholder: compliance fraction per income quartile.}\vspace{2cm}}}
+\caption{Effect of the financial burden: compliance fraction by income quartile and the infectious population $I(t)$ for different income distributions.}
+\label{fig:income}
+\end{figure}
+
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+
+\section*{Acknowledgments}
+
+This work was carried out as part of the Summer 2026 Research Experiences for Undergraduates (REU) program of the Department of Mathematics at The University of Alabama.
+% -------------------------------------------------
+% BIBLIOGRAPHY
+% -------------------------------------------------
+\bibliographystyle{unsrt}
+\bibliography{reference}
+
+\end{document}

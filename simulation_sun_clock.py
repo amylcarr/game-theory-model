@@ -38,7 +38,7 @@ class ClockRates:
     floor_to_home: float = 1.0 / 4.5  # per-agent rate to go home from floor
     home_to_floor: float = 1.0 / 19.5  # per-agent rate to leave home for floor
     s_to_e: float = 13.0 / 24.0  # per susceptible-on-floor contact attempt rate
-    e_to_i: float = 1.0 / 48.0  # per-exposed incubation completion rate
+    e_to_i: float = 1.0 / (5.0 * 24.0)  # per-exposed incubation completion rate
     i_to_r: float = 1.0 / 216.0  # per-infectious recovery rate
     r_to_s: float = 1.0 / 3600.0  # per-recovered immunity-waning rate
     government: float = 1.0 / (7.0 * 24.0)  # policy review rate (depends on mandate)
@@ -134,7 +134,7 @@ class CandyLand:
             population
         )  # array[agent] -> that agent's income-quartile burden (0–1)
         self.compliance_prob = np.full(
-            population, 0.5
+            population, 0.0
         )  # array[agent] -> that agent's continuous compliance probability
         self.compliant = np.zeros(
             population, dtype=np.uint8
@@ -627,12 +627,8 @@ class CandyLand:
         #     # Returning to the public floor triggers a compliance decision.
         #     self._update_compliance(agent, building)
 
-        if self.first_time_on_floor[agent]:
-            # Returning to the public floor triggers a compliance decision.
-            self._update_compliance(agent, building)
-        else:
-            # First visit to the floor: compliance stays the same
-            self.first_time_on_floor[agent] = True
+        # Entering the public floor triggers a compliance decision.
+        self._update_compliance(agent, building)
 
     def floor_to_home(self) -> None:
         agent_index = self._random_index(self.num_on_floor)
