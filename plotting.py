@@ -72,6 +72,7 @@ def read_history(csv_file: Path) -> dict[str, list]:
         "mandate": [],
         "complying": [],
         "away_percent": [],
+        "floor_complying_percent": [],
     }
     with csv_file.open(newline="") as file:
         for row in csv.DictReader(file):
@@ -79,6 +80,9 @@ def read_history(csv_file: Path) -> dict[str, list]:
             for key in ("s", "e", "i", "r", "mandate", "complying"):
                 history[key].append(int(row[key]))
             history["away_percent"].append(float(row["away_percent"]))
+            history["floor_complying_percent"].append(
+                float(row["floor_complying_percent"])
+            )
     return history
 
 
@@ -93,7 +97,7 @@ def analyze_history(history: dict[str, list]) -> None:
     print(f"peak_infectious={max(history['i'])}")
     print(f"peak_mandate={max(history['mandate'])}")
     print(f"final_complying={history['complying'][-1]}")
-    print(f"peak_away_percent={max(history['away_percent']):.2f}")
+    print(f"min_floor_complying_percent={min(history['floor_complying_percent']):.2f}")
 
 
 def write_description(
@@ -135,7 +139,7 @@ def plot_history(history: dict[str, list], output_file: Path) -> None:
         ("i", "Infectious", "crimson"),
         ("r", "Recovered", "seagreen"),
         ("mandate", "Mandate Level", "purple"),
-        ("away_percent", "Away from Home (%)", "teal"),
+        ("floor_complying_percent", "Complying on Public Floor (%)", "teal"),
     )
 
     for axis, (key, title, color) in zip(axes.flat, plots):

@@ -319,14 +319,14 @@ Thus, $\varepsilon_{i,b}(t)$ is the proportion of the other individuals in the c
 \label{sec:movement}
 
 The movement of individuals between public buildings and private homes is governed by Poisson clocks. Each movement clock represents a different type of location change and is active only when the corresponding movement is possible (that is, when individual $i$ is in the appropriate compartment).
-The following subsections define the building-to-building clock, the building-to-home clock, and the home-to-building clock, together with their rates, waiting-time distributions, active compartments, and effects on the state of an individual.
+There are three movement clocks: the building-to-building clock, the building-to-home clock, and the home-to-building clock. All three preserve the health status of the individual who moves, and the two clocks that place an individual in a public building also trigger a compliance decision.
+
+The building-to-building rate $\alpha_{BB}$ is constant. By contrast, people do not move between home and the public floor at a constant pace: they leave home mostly in the morning and return mostly in the evening. We therefore let the building-to-home rate $\alpha_{BH}$ and the home-to-building rate $\alpha_{HB}$ change with the time of day. These two rates are not fixed parameters but are \emph{updated by the sun clock}, a system-level clock that rings roughly once per hour and, at each ring, replaces $\alpha_{BH}$ and $\alpha_{HB}$ with the values that an empirical hourly table assigns to the current hour of the day. The update rule is described in \Cref{sec:sun}; the table is derived from the American Time Use Survey (ATUS), as described in \Cref{app:atus}. The three movement clocks are defined below, with the understanding that $\alpha_{BH}$ and $\alpha_{HB}$ denote the rates currently in force.
 
 \subsubsection{Building-to-Building (BTB) Movement: \texorpdfstring{$b\rightarrow b'$}{b to b'}}
 \label{sec:btb}
 
-The building-to-building (BTB) movement clock determines when an individual moves from their current public building to another public building. Let $b,b'\in B$ be two public buildings,
-%\textcolor{red}{These notations may need to be introduced earlier, because you have already mentioned "u" denoting a building earlier}
-where $B=\{b_1,\ldots,b_K\}$ is the set of all public buildings. The clock governs transitions of the form
+The building-to-building (BTB) movement clock determines when an individual moves from their current public building to another public building. Let $b,b'\in B$ be two public buildings, where $B=\{b_1,\ldots,b_K\}$ is the set of all public buildings. The clock governs transitions of the form
 \[
 b\longrightarrow b',
 \qquad b,b' \in B.
@@ -339,44 +339,21 @@ S_{C,F},\ E_{C,F},\ I_{C,F},\ R_{C,F},
 S_{N,F},\ E_{N,F},\ I_{N,F},\ R_{N,F}.
 \]
 
-%\textcolor{red}{For math tightness, we usually say: one Type (I) clock is assigned to each agent in the followoing compartments...}
-
-Let $\alpha_{BB}$ denote the rate of the BTB clock. For an individual $i$ currently located in building $b$, the waiting time until the individual's next movement to another public building is
-\[
-T_i^{BB}\sim\operatorname{Exp}(\alpha_{BB}).
-\]
-\todo[inline]{CW: It OK to simply say that the waiting time is an exponential random variable with mean as the reciprocal of its rate.}
+Let $\alpha_{BB}$ denote the rate of the BTB clock. For an individual $i$ currently located in building $b$, the waiting time until the individual's next movement to another public building is an exponential random variable $T_i^{BB}\sim\operatorname{Exp}(\alpha_{BB})$, whose mean is the reciprocal of its rate.
 Empirical studies of daily human mobility suggest that individuals typically
 visit only a small number of distinct locations each day. Schneider et al.\
 found that the average number of locations visited per day was approximately
 three, with 90\% of individuals visiting fewer than seven locations \cite{schneider2013}. Motivated by this empirical scale, we assume that an
-individual makes approximately 2.5 public-building movements per day.
-Since the model measures time in days, we therefore set
+individual makes approximately 2.5 public-building movements per day, so that
 \[
-\alpha_{BB}=2.5.
+\alpha_{BB}=2.5\text{ day}^{-1},
+\qquad
+\mathbb{E}\left[T_i^{BB}\right]=\frac{1}{\alpha_{BB}}=0.4\text{ days}=9.6\text{ hours}.
 \]
+Thus, an individual currently on the floor moves from one public building to another on average every $9.6$ hours. Unlike $\alpha_{BH}$ and $\alpha_{HB}$, this rate does not depend on the time of day and is not changed by the sun clock.
 
-The expected waiting time is
-\begin{equation}
- \mathbb{E}\left[T_i^{BB}\right]  =
- \frac{1}{\alpha_{BB}}  =  \frac{1}{2.5}
-=0.4
-\end{equation}
-days. Converting this value to hours gives $0.4(24)=9.6$ hours.
-
-Thus, an individual currently on the floor moves from one public building to another on average every $9.6$ hours.
 When the clock rings, the destination building is selected uniformly at random: if individual $i$ is currently in building $b$, then the probability that individual $i$ moves to $b'$ is $1/K$ for any $b' \in B$.
-
-%\textit{Remark: The buildings being closed would change this probability and probably make this code more complicated so I am now thinking to refrain from building closure.}
-%\textcolor{red}{Agreed. As I have  said previously, this can be rewritten into a remark, something like a future work}
-
-This clock also works as a decision clock and updates the individual's compliance status.
-When individual $i$ moves from building $b$ to building $b'$, the individual recomputes their compliance probability and performs a Bernoulli trial. The way in which the decision process updates an individual's probability is described in \Cref{sec:behavioral}.
-
-To conclude, once a BTB clock advances, the individual carrying the clock immediately jumps from building $b$ to another building $b'$, recomputes their compliance probability, and performs a Bernoulli trial with this probability to update their compliance status.
-
-%\textcolor{red}{To make the narration more precisly, we can add something like: To conlude, once a Type (I) clock advances, the corresponding carrier will immediately carry out a jump to a different building or stay put. Then rightafter that, he will recompute his decision probability, update his decision probability, and perorm a Bernoulli sampling using this probablity, to update his compliance status....something like this. }
-
+This clock also works as a decision clock. When individual $i$ moves from building $b$ to building $b'$, the individual recomputes their compliance probability and performs a Bernoulli trial with this probability to update their compliance status. The way in which the decision process updates an individual's probability is described in \Cref{sec:behavioral}.
 
 \subsubsection{Building-to-Home Movement: \texorpdfstring{$b\rightarrow -1$}{b to home}}
 \label{sec:bth}
@@ -387,62 +364,17 @@ b\longrightarrow -1,
 \qquad  b\in B.
 \end{equation}
 
-This clock is active for every individual who is currently on the public floor.
-Therefore, individuals in any of the following eight floor compartments receive this clock:
+This clock is active for every individual who is currently on the public floor, that is, for individuals in any of the eight floor compartments $S_{C,F},E_{C,F},I_{C,F},R_{C,F},S_{N,F},E_{N,F},I_{N,F},R_{N,F}$.
+
+Let $\alpha_{BH}$ denote the rate of the BTH clock \emph{currently in force}. For an individual $i$ currently located in building $b$, the waiting time until the individual returns home is $T_i^{BH}\sim\operatorname{Exp}(\alpha_{BH})$. The rate $\alpha_{BH}$ is the same for every individual on the floor, but it is not constant in time: at every ring of the sun clock it is reset to $\alpha_{BH}(h)$, the ATUS-derived rate for the current hour $h$ (see \Cref{sec:sun}). Individuals are therefore most likely to return home in the evening and overnight, when $\alpha_{BH}(h)$ is largest (\Cref{tab:sunrates}).
+
+When a BTH clock rings at time $t$, the individual carrying the clock, located in building $b$, changes their location state to $-1$, the private home. The individual's health status does not change during this movement. Since an individual located at home is considered compliant in the model, individuals from both compliant and noncompliant floor compartments enter the corresponding compliant private compartment:
 \[
-S_{C,F},\ E_{C,F},\ I_{C,F},\ R_{C,F},
+X_{C,F}\longrightarrow X_{C,P}
 \quad\text{and}\quad
-S_{N,F},\ E_{N,F},\ I_{N,F},\ R_{N,F}.
+X_{N,F}\longrightarrow X_{C,P},
+\qquad X\in\{S,E,I,R\}.
 \]
-
-\todo[inline]{CW: Maybe ``Every agent in the "public-floor" compartment has a Type (II) clock.''}
-
-Let $\alpha_{BH}$ denote the rate of the BTH clock. For an individual $i$ currently located in building $b$, the waiting time until the individual returns home is
-\[
-T_i^{BH}\sim\operatorname{Exp}(\alpha_{BH}).
-\]
-
-We assume that an individual spends approximately $4.5$ consecutive hours on the public floor before returning home. Since the model measures time in days, we first convert $4.5$ hours into days:
-\[
-\frac{4.5}{24}=0.1875\text{ days}.
-\]
-
-The expected waiting time of an exponential random variable is the reciprocal of its rate. Therefore,
-\[
-\mathbb{E}\left[T_i^{BH}\right]=\frac{1}{\alpha_{BH}}=0.1875,
-\qquad\text{so that}\qquad
-\alpha_{BH}=\frac{16}{3}.
-\]
-
-This is a baseline mean; in the simulation the rate $\alpha_{BH}$ varies with the hour of day through the sun clock of \Cref{sec:sun}.
-
-%%\textcolor{red}{Part of the above computatino seems to be a double-check of some computation, which could be deleted. }
-
-When a BTH clock rings at time $t$, the individual carrying the clock, located in building $b$, changes their location state to $-1$, the private home. The individual's health status does not change during this movement.
-
-Since an individual located at home is considered compliant in the model, individuals from both compliant and noncompliant floor compartments enter the corresponding compliant private compartment. The possible transitions are
-\[
-S_{C,F}\longrightarrow S_{C,P},
-\qquad
-S_{N,F}\longrightarrow S_{C,P},
-\]
-\[
-E_{C,F}\longrightarrow E_{C,P},
-\qquad
-E_{N,F}\longrightarrow E_{C,P},
-\]
-\[
-I_{C,F}\longrightarrow I_{C,P},
-\qquad
-I_{N,F}\longrightarrow I_{C,P},
-\]
-and
-\[
-R_{C,F}\longrightarrow R_{C,P},
-\qquad
-R_{N,F}\longrightarrow R_{C,P}.
-\]
-
 The individual's stored compliance probability remains attached to the individual while they are at home. However, the individual does not perform a new decision update or Bernoulli trial when moving from a public building to their private home.
 
 \subsubsection{Home-to-Building Movement: \texorpdfstring{$-1\rightarrow b$}{home to b}}
@@ -454,104 +386,38 @@ The home-to-building (HTB) movement clock determines when an individual leaves t
 \qquad  b\in B.
 \end{equation}
 
-This clock is active for every individual who is currently located at home. Since individuals at home are considered compliant, individuals in the following four private compartments receive this clock:
+This clock is active for every individual who is currently located at home. Since individuals at home are considered compliant, individuals in the following four private compartments receive this clock: $S_{C,P},\ E_{C,P},\ I_{C,P},\ R_{C,P}$.
+
+Let $\alpha_{HB}$ denote the rate of the HTB clock currently in force. For an individual $i$ currently located at home, the waiting time until the individual enters a public building is $T_i^{HB}\sim\operatorname{Exp}(\alpha_{HB})$. As with $\alpha_{BH}$, the rate is common to all individuals at home and is reset to $\alpha_{HB}(h)$ at every ring of the sun clock. The rate is close to zero overnight and peaks in the morning, so that individuals are most likely to leave home during the morning hours (\Cref{tab:sunrates}).
+
+When the clock rings, the destination building is selected uniformly at random from $B$, so that the probability that individual $i$ enters building $b$ is $1/K$ for any $b\in B$.
+This clock also works as a decision clock. When individual $i$ moves from home into building $b$, the individual updates their stored compliance probability using the local population of the selected building and then performs a Bernoulli trial. The individual's health status remains unchanged, but the Bernoulli trial determines whether the individual enters the compliant or noncompliant version of the corresponding floor compartment:
 \[
-S_{C,P},\ E_{C,P},\ I_{C,P},\ R_{C,P}.
+X_{C,P}\longrightarrow X_{C,F}
+\quad\text{or}\quad
+X_{C,P}\longrightarrow X_{N,F},
+\qquad X\in\{S,E,I,R\}.
 \]
-
-Let $\alpha_{HB}$ denote the rate of the HTB clock. For an individual $i$ currently located at home, the waiting time until the individual returns to a public building is
-\[
-T_i^{HB}\sim\operatorname{Exp}(\alpha_{HB}).
-\]
-
-We assume that an individual spends approximately $19.5$ consecutive hours at home before returning to the public floor. This value is determined by subtracting the average $4.5$ hours spent on the public floor from the $24$ hours in one day:
-\[
-24-4.5=19.5\text{ hours}.
-\]
-
-Since the model measures time in days, we convert $19.5$ hours into days:
-\[
-\frac{19.5}{24}=0.8125\text{ days}.
-\]
-
-The expected waiting time of an exponential random variable is the reciprocal of its rate. Therefore,
-\[
-\mathbb{E}\left[T_i^{HB}\right]=\frac{1}{\alpha_{HB}}=0.8125,
-\]
-and solving for $\alpha_{HB}$ gives
-\[
-\alpha_{HB}=\frac{1}{0.8125}=\frac{16}{13}.
-\]
-
-This is a baseline mean; in the simulation the rate $\alpha_{HB}$ varies with the hour of day through the sun clock of \Cref{sec:sun}.
-
-When the clock rings, the destination building is selected from the set of public buildings $B$. Since every building is equally likely to be selected, the probability that individual $i$ enters building $b$ is
-\[
-\frac{1}{K}
-\]
-for any $b\in B$.
-
-%\begin{remark}\label{rem:1}
-%If building closures are later included in the model, closed buildings would need to be removed from the set of possible destinations. The probability of entering each open building would then depend on the number of buildings that remain open.
-%\end{remark}
-%\textcolor{red}{This remark can be combinted with the other ones, and you can refer to them by saying: see Remark \ref{rem:1} below. }
-
-This clock also works as a decision clock and updates the individual's compliance status. When individual $i$ moves from home into building $b$, the individual updates their stored compliance probability using the local population of the selected building and then performs a Bernoulli trial.
-
-The individual's health status remains unchanged, but the Bernoulli trial determines whether the individual enters the compliant or noncompliant version of the corresponding floor compartment. The possible transitions are
-
-\todo[inline]{CW: We could combine the description of the three clocks together, as their mechanisms are very similar, for example, they will both preserve the health status.}
-
-\[
-S_{C,P}\longrightarrow S_{C,F}
-\qquad \text{or} \qquad
-S_{C,P}\longrightarrow S_{N,F},
-\]
-\[
-E_{C,P}\longrightarrow E_{C,F}
-\qquad \text{or} \qquad
-E_{C,P}\longrightarrow E_{N,F},
-\]
-\[
-I_{C,P}\longrightarrow I_{C,F}
-\qquad \text{or} \qquad
-I_{C,P}\longrightarrow I_{N,F},
-\]
-and
-\[
-R_{C,P}\longrightarrow R_{C,F}
-\qquad \text{or} \qquad
-R_{C,P}\longrightarrow R_{N,F}.
-\]
-
-\todo[inline]{CW: The above can be written into the table of merged rate and probability of each arrival belonging to certain clock. Here we could consider deleting them.}
-
 The process used to update an individual's compliance probability and perform the Bernoulli trial is described in detail in \Cref{sec:behavioral}.
 
-\subsection{The Day--Night (Sun) Clock}
+\subsection{The Sun Clock}
 \label{sec:sun}
 
-To model the difference between daytime and nighttime movement behavior, we introduce a
-system-level sun clock. Rather than a two-state day/night switch, the model uses an empirical hourly
-profile of movement. Let $h(t)=\lfloor t\rfloor \bmod 24$ denote the hour of the day at time $t$ (measured in hours). Two lookup tables, read from a file with one row per hour, give the per-individual movement rates
-\[
-\alpha_{HB}(h),\qquad \alpha_{BH}(h),\qquad h=0,1,\ldots,23,
-\]
-where $\alpha_{BH}(h)$ is the rate at which an individual on the public floor returns home and $\alpha_{HB}(h)$ is the rate at which an individual at home enters the public floor during hour $h$. Both rates are nonnegative and finite, and they are larger or smaller during different parts of the day, so that individuals enter public buildings more frequently during the day and return home more frequently at night.
-
-The sun clock is a system-level clock, meaning it is not assigned to a particular individual. Its rate is $\alpha_{\mathrm{sun}}=1$ per hour (24 per day), so that the waiting time until the next sun-clock event is
+The ATUS-derived table of hourly rates (\Cref{tab:sunrates} in \Cref{app:atus}) gives a rate for each hour of the day, but the event-driven simulation of \Cref{sec:merged} requires rates that are held constant between events. We therefore introduce a \emph{sun clock}, a system-level Poisson clock that is not assigned to any particular individual. Its rate is $\alpha_{\mathrm{sun}}=1$ per hour ($24$ per day), so that the waiting time until the next sun-clock event is
 \[
 T^{\mathrm{sun}}\sim \operatorname{Exp}(\alpha_{\mathrm{sun}}),\qquad \mathbb{E}\left[T^{\mathrm{sun}}\right]=1\text{ hour}.
 \]
-When the sun clock rings at time $t$, the movement rates are refreshed from the lookup tables,
+The sun clock therefore rings roughly every hour, but, being a Poisson clock, the actual gaps between rings are random: they may be much shorter or longer than an hour, and an hour of the day may be skipped entirely.
+
+Let $h(t)=\lfloor t\rfloor \bmod 24$ denote the hour of the day at time $t$ (with $t$ measured in hours). When the sun clock rings at time $t$, the two time-varying movement rates are refreshed from \Cref{tab:sunrates},
 \[
 \alpha_{BH}\leftarrow\alpha_{BH}(h(t)),
 \qquad
 \alpha_{HB}\leftarrow\alpha_{HB}(h(t)).
 \]
-At $t=0$ the rates are initialized from hour $0$. Between sun-clock events the rates are held fixed, so the rates in force lag the true hour of the day by the (random) time since the last ring. Like every other clock, the sun clock is merged into the event-driven simulation of \Cref{sec:merged}.
+At $t=0$ the rates are initialized from hour $0$. Between two consecutive rings the rates are held fixed, so the rates in force correspond to the hour in which the sun clock last rang and may lag the true hour of the day by the (random) time since that ring. A sun-clock event changes no individual's location or health; it changes only the rates, and hence the merged event rate $\Lambda(t)$ and the probabilities of the subsequent events.
 
-\todo[inline]{The hourly profile is the file \texttt{sun\_clock\_leave\_probability.csv}. The former two-state version, with $\alpha_{BH}\in\{16/13,16/3\}$ and $\alpha_{HB}\in\{16/3,16/13\}$ per day and $\alpha_{\mathrm{sun}}=2$ per day, is no longer used.}
+The rates in force are per-individual rates. Since a group of $n$ independent clocks with a common rate $r$ rings at total rate $nr$, the number of individuals in the relevant compartment enters the merged rate: the BTH clocks contribute $\alpha_{BH}M_F(t)$, where $M_F(t)$ is the number of individuals on the public floor, and the HTB clocks contribute $\alpha_{HB}M_P(t)$, where $M_P(t)=M-M_F(t)$ is the number of individuals at home. When a BTH (respectively HTB) event is selected, the individual who moves is chosen uniformly at random among those on the floor (respectively at home). Like every other clock, the sun clock is merged into the event-driven simulation of \Cref{sec:merged}.
 
 \section{Behavioral Decision Model}
 \label{sec:behavioral}
@@ -1372,6 +1238,40 @@ $K_i(0)$ & initial restriction fatigue & $0$ & \Cref{sec:init} \\
 \section*{Acknowledgments}
 
 This work was carried out as part of the Summer 2026 Research Experiences for Undergraduates (REU) program of the Department of Mathematics at The University of Alabama.
+\appendix
+
+\section{ATUS-Derived Hourly Movement Rates}
+\label{app:atus}
+
+To capture the daily rhythm of movement, we estimate hourly home-to-building and building-to-home rates from the American Time Use Survey (ATUS) activity file. Each respondent's diary day is a sequence of activities, each with a start time, a stop time, a survey weight, and a location code. We label an activity \emph{at home} if its location is the respondent's home or yard (activities such as sleeping, for which the location is not recorded, are also treated as at home) and \emph{away} otherwise; an away activity corresponds to being on the public floor. Activities that cross midnight are split at midnight. For each hour $h=0,1,\ldots,23$ of the day we compute the weighted number of home-to-away and away-to-home transitions that begin in that hour, and divide by the weighted person-time spent at home and away, respectively, during that hour:
+\begin{equation}\label{eq:atus-rates}
+\alpha_{HB}(h)=\frac{\text{weighted home}\to\text{away transitions in hour }h}{\text{weighted person-hours at home in hour }h},
+\qquad
+\alpha_{BH}(h)=\frac{\text{weighted away}\to\text{home transitions in hour }h}{\text{weighted person-hours away in hour }h}.
+\end{equation}
+These are empirical continuous-time hazards, measured in events per person-hour, and they are not rescaled to a fixed daily average. Both are nonnegative and finite. The resulting values are shown in \Cref{tab:sunrates}. The home-to-building rate is essentially zero from midnight to 3 a.m., rises sharply through the morning, peaks at about $0.17$ per hour at 9--10 a.m., and decays through the evening. The building-to-home rate is largest, above $0.6$ per hour, late in the evening, and smallest, about $0.13$ per hour, in the morning, shortly after people have left home.
+
+\begin{table}[H]
+\centering
+\caption{Hourly movement rates $\alpha_{HB}(h)$ and $\alpha_{BH}(h)$ (events per person-hour) estimated from the ATUS activity file. The file \texttt{sun\_clock\_leave\_probability.csv} contains these values to full precision.}
+\label{tab:sunrates}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{l*{12}{r}}
+\toprule
+$h$ & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 \\
+\midrule
+$\alpha_{HB}(h)$ & 0.0012 & 0.0010 & 0.0018 & 0.0064 & 0.0134 & 0.0232 & 0.0582 & 0.1188 & 0.1568 & 0.1640 & 0.1687 & 0.1441 \\
+$\alpha_{BH}(h)$ & 0.4253 & 0.3124 & 0.2496 & 0.1969 & 0.2777 & 0.1489 & 0.1257 & 0.1801 & 0.1504 & 0.1316 & 0.1368 & 0.1693 \\
+\midrule\midrule
+$h$ & 12 & 13 & 14 & 15 & 16 & 17 & 18 & 19 & 20 & 21 & 22 & 23 \\
+\midrule
+$\alpha_{HB}(h)$ & 0.1456 & 0.1239 & 0.1126 & 0.1193 & 0.1217 & 0.1202 & 0.0874 & 0.0403 & 0.0207 & 0.0121 & 0.0076 & 0.0047 \\
+$\alpha_{BH}(h)$ & 0.2143 & 0.2056 & 0.2177 & 0.2650 & 0.3416 & 0.4074 & 0.4056 & 0.4282 & 0.4724 & 0.6304 & 0.6712 & 0.6177 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 % -------------------------------------------------
 % BIBLIOGRAPHY
 % -------------------------------------------------

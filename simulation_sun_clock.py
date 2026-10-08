@@ -106,7 +106,7 @@ class CandyLand:
         self.num_s_to_e_infections = 0  # scalar: count of those interactions that resulted in an infection
         self.num_household_infections = 0  # scalar: count of exposures caused by a household member becoming infectious
         self.mandate_level = 0  # scalar: government mandate intensity (0–3)
-        self.lambda_logit = 1.0  # scalar: logit sensitivity for compliance choice
+        self.lambda_logit = 4.0  # scalar: logit sensitivity for compliance choice
         clock_path = (
             Path(sun_clock_file)
             if sun_clock_file is not None
@@ -246,7 +246,7 @@ class CandyLand:
             output = open(output_file, "w", encoding="utf-8")
             output.write(
                 "time,s,e,i,r,mandate,complying,on_floor,away_percent,"
-                "compliance_q1,compliance_q2,compliance_q3,compliance_q4,"
+                "floor_complying_percent,compliance_q1,compliance_q2,compliance_q3,compliance_q4,"
                 "infectious_q1,infectious_q2,infectious_q3,infectious_q4\n"
             )
             self._record_state(output, 0.0)
@@ -761,11 +761,19 @@ class CandyLand:
                 infectious_fractions.append(
                     float((self.health[floor_group] == INFECTIOUS).mean())
                 )
+        floor_agents = self.on_floor[: self.num_on_floor]
+        floor_complying_percent = (
+            100.0 * float(np.count_nonzero(self.compliant[floor_agents]))
+            / self.num_on_floor
+            if self.num_on_floor
+            else 100.0
+        )
         output.write(
             f"{sample_time:.10g},{counts[SUSCEPTIBLE]},{counts[EXPOSED]},"
             f"{counts[INFECTIOUS]},{counts[RECOVERED]},"
             f"{self.mandate_level},{self._num_compliant},{self.num_on_floor},"
             f"{100.0 * self.num_on_floor / self.population:.10g},"
+            f"{floor_complying_percent:.10g},"
             f"{','.join(f'{fraction:.10g}' for fraction in compliance_fractions)},"
             f"{','.join(f'{fraction:.10g}' for fraction in infectious_fractions)}\n"
         )
