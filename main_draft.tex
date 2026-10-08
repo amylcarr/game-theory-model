@@ -951,7 +951,8 @@ This clock is assigned to every individual in the recovered compartment $R$. Whe
 
 \Cref{tab:clocks} lists the nine types of Poisson clocks in the model, the compartment an individual must be in to carry each clock, the rate symbol, the waiting-time random variable, and the mean waiting time. Throughout, $\alpha_{BB}$, $\alpha_{BH}$, $\alpha_{HB}$, $\alpha_{\mathrm{sun}}$, $\alpha_{SE}$, $\alpha_{EI}$, $\alpha_{IR}$, $\alpha_{RS}$, and $\alpha_G$ denote clock rates, and the corresponding random variables are the waiting times until those events occur. For example, $\alpha_{BB}$ is the rate of the building-to-building movement clock, while $T_i^{BB}$ is the random waiting time until individual $i$'s next building-to-building movement.
 
-\todo[inline]{CW: I think that the event of updating the fatigue level is missing}
+There is no separate Poisson clock for restriction fatigue. The fatigue update of \Cref{sec:fatigue-rule} is part of the decision step triggered by the building-to-building and home-to-building clocks (which is how the simulation code implements it). When either clock rings for individual $i$, the individual first moves, then recomputes the utilities using the current value $K_i(t^-)$, updates $p_i$, and performs the Bernoulli trial; $K_i$ is then updated according to the realized outcome (increased by one after compliance, decreased by one but not below zero after noncompliance). The building-to-home clock does not trigger a decision update, so it leaves $p_i$, the behavioral state $B_i$, and $K_i$ unchanged.
+
 
 \begin{table}[H]
 \centering
@@ -963,9 +964,9 @@ This clock is assigned to every individual in the recovered compartment $R$. Whe
 \toprule
 \textbf{Clock} & \textbf{Active for} & \textbf{Rate} & \textbf{Waiting time} & \textbf{Event} & \textbf{Mean waiting time} \\
 \midrule
-Building-to-building & individuals on the public floor & $\alpha_{BB}$ & $T_i^{BB}$ & Individual $i$ moves from one public building to another & $1/\alpha_{BB}=9.6$ h (0.4 days) \\
+Building-to-building & individuals on the public floor & $\alpha_{BB}$ & $T_i^{BB}$ & Individual $i$ moves from one public building to another, then performs a decision update (new $p_i$, Bernoulli trial, and fatigue update $K_i$) & $1/\alpha_{BB}=9.6$ h (0.4 days) \\
 Building-to-home & individuals on the public floor & $\alpha_{BH}(Z)$ & $T_i^{BH}$ & Individual $i$ leaves the public floor and returns to their private home & depends on hour of day \\
-Home-to-building & individuals at home & $\alpha_{HB}(Z)$ & $T_i^{HB}$ & Individual $i$ leaves their private home and enters a public building & depends on hour of day \\
+Home-to-building & individuals at home & $\alpha_{HB}(Z)$ & $T_i^{HB}$ & Individual $i$ leaves their private home and enters a public building, then performs a decision update (new $p_i$, Bernoulli trial, and fatigue update $K_i$) & depends on hour of day \\
 Sun (day--night) & entire system & $\alpha_{\mathrm{sun}}$ & $T^{\mathrm{sun}}$ & Refreshes $\alpha_{BH}$ and $\alpha_{HB}$ from the hourly lookup tables & $1$ h \\
 Susceptible contact & susceptible individuals on the public floor
 %CWang: or you can say S agents
