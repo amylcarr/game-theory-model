@@ -243,7 +243,7 @@ H_i(t) \in \{S, E, I ,R \}.
 \todo[inline]{CW: We may need to introduce stochastic processes at this point. Please see the pdf  file updated to help you to write it.}
 
 \subsubsection{Household Assignments}
-Using data from {FIXME: ACS refernce}, we assign household IDs to each agent upon simulation initialization. Agents with the same household ID represent individuals that live together. Moreover, when an agent becomes infectious, agents sharing the household ID immediately change their health state to exposed. 
+Using data from {FIXME: ACS refernce}, we assign household IDs to each agent upon simulation initialization. Agents are assigned to households sequentially: each household size is drawn independently from a fixed distribution over sizes $1,\ldots,7$ with probabilities $0.289$, $0.342$, $0.153$, $0.123$, $0.057$, $0.022$, and $0.015$ (renormalized to sum to one), and consecutive agents are placed in the household until the population is exhausted. The final household is truncated if fewer agents remain than the drawn size. Agents with the same household ID represent individuals that live together. Moreover, when an agent becomes infectious, agents sharing the household ID immediately change their health state to exposed. 
 
 \subsubsection{Behavioral Variables}
 \paragraph{Stored compliance probability.}
@@ -346,9 +346,9 @@ found that the average number of locations visited per day was approximately
 three, with 90\% of individuals visiting fewer than seven locations \cite{schneider2013}. Motivated by this empirical scale, we assume that an
 individual makes approximately 2.5 public-building movements per day, so that
 \[
-\alpha_{BB}=2.5\text{ day}^{-1},
+\alpha_{BB}=\frac{2.5}{24}\text{ h}^{-1}=\frac{1}{9.6}\text{ h}^{-1},
 \qquad
-\mathbb{E}\left[T_i^{BB}\right]=\frac{1}{\alpha_{BB}}=0.4\text{ days}=9.6\text{ hours}.
+\mathbb{E}\left[T_i^{BB}\right]=\frac{1}{\alpha_{BB}}=9.6\text{ hours}.
 \]
 Thus, an individual currently on the floor moves from one public building to another on average every $9.6$ hours. Unlike $\alpha_{BH}$ and $\alpha_{HB}$, this rate does not depend on the time of day and is not changed by the sun clock.
 
@@ -741,12 +741,12 @@ conditions.
 
 The government considers a policy pressure score when determining its mandate level. The pressure score is defined by
 \begin{equation}\label{eq:pressure}
-P_G(t)=\frac{I(t)}{M}\left(1-\frac{M_C^F(t)}{M}\right),
+P_G(t)=\frac{I(t)}{M}\left(1-\frac{M_C^F(t)}{M_F(t)}\right),
 \end{equation}
-where $I(t)$ is the number of infectious individuals, and $M$ is the total population size. We assume that the government can only measure the compliance of agents who are outside of the home, thus $M_C^F(t)$ is the number of currently complying individuals on the public floor.
+where $I(t)$ is the number of infectious individuals, and $M$ is the total population size. We assume that the government can only measure the compliance of agents who are outside of the home, thus $M_C^F(t)$ is the number of currently complying individuals on the public floor and $M_F(t)$ is the number of individuals on the public floor. If nobody is on the floor ($M_F(t)=0$), the floor compliance fraction is taken to be $1$, so that $P_G(t)=0$.
 \todo[inline]{CW: I am guessing that you will need to create the notation$N_U (t)$, as later on, when we show the output figures.... Also if we do so, we may need to talk about this right when you introduce the 12 sub compartments.}
 
-The term $I(t)/M$ represents the proportion of the population that is infectious, while $1-M_C(t)/M$ represents the proportion of the population that is not complying. Therefore, the pressure score increases when infection prevalence is high and compliance is low.
+The term $I(t)/M$ represents the proportion of the population that is infectious, while $1-M_C^F(t)/M_F(t)$ represents the proportion of individuals on the public floor that are not complying. Therefore, the pressure score increases when infection prevalence is high and compliance is low.
 
 \subsubsection{Mandate Levels}
 \label{sec:mandate}
@@ -793,14 +793,14 @@ The rate of the government clock is a function of $G(t)$, defined by
 \begin{equation}\label{eq:govrate}
 \alpha_G(G(t))=
 \begin{cases}
-\frac{1}{7}, & \text{if } G(t)=0,\\
-\frac{1}{5}, & \text{if } G(t)=1,\\
-\frac{1}{3}, & \text{if } G(t)=2,\\
-1, & \text{if } G(t)=3.
+\frac{1}{168}, & \text{if } G(t)=0,\\
+\frac{1}{120}, & \text{if } G(t)=1,\\
+\frac{1}{72}, & \text{if } G(t)=2,\\
+\frac{1}{24}, & \text{if } G(t)=3.
 \end{cases}
 \end{equation}
 
-Since time is measured in days, these rates correspond to average waiting times of seven days, five days, three days, and one day, respectively.
+Since time is measured in hours, these rates correspond to average waiting times of seven days (168 h), five days (120 h), three days (72 h), and one day (24 h), respectively.
 Given the current mandate level, the waiting time until the next government review is
 \[
 T^{G}\sim\operatorname{Exp}\left(\alpha_G(G(t))\right).
@@ -841,21 +841,17 @@ where $I(t)/M$ is the infection prevalence at time $t$ and $\varepsilon_{i,b}(t)
 \todo[inline]{CW: Do we want to put the divided by 2 on the exponent? I am  not sure; only a spontaneous thought. So we can think about  using Taylor expansion to see what this probability is, when N is very large and terms like $1/N^2 $ can  be ignored.}
 
 
-The susceptible contact clock determines when a susceptible individual interacts with another
-individual in the same public building. A contact does not automatically cause the susceptible
-individual to become exposed. Instead, after a contact occurs, the disease status of the
-contacted individual is checked. If the contacted individual is infectious, then a Bernoulli trial
-determines whether transmission occurs.
+The susceptible contact clock determines when a susceptible individual on the public floor is exposed to the other occupants of their building. The mechanism is a single Bernoulli trial and does not involve selecting an individual contact. When the clock rings for individual $i$ in building $b$, the individual is exposed to the building as a whole: the infectious proportion $\varepsilon_{i,b}(t)$ of \eqref{eq:1} already accounts for the chance that the occupants encountered are infectious, so the exposure probability $s_i(t)$ of \eqref{eq:stn} is used directly in one Bernoulli trial. If individual $i$ is alone in the building, there is no one to be exposed to, and the event has no effect. Compliance halves the exponent in \eqref{eq:stn}, reflecting the protective effect of compliant behavior.
 
 \todo[inline]{CW: So the Bernoulli trial is with probability defined in \eqref{eq:stn} and \eqref{eq:stn}, I assume? So just to make sure I understand this correctly: the first layer is that S needs to meet someone who is I, and then the second layer is what comes out the Bernoulli trials. If so, then we need to be very precise about the mechanism: Upon  an advancement of a Susceptible contact clock, the clock carrier will then choose another person in the same building, uniformly and randomly (if nobody then fine). Then we check what health status the chosen person is. If he is I, then we perform the Bernoulli trial.}
 
 Mossong et al.\ reported an average of 13.4 contacts with different
 individuals per participant per day \cite{mossong2008}. Motivated by this
-empirical estimate, we assume approximately 13 contacts per individual per day. Thus, the average waiting time between contacts is
+empirical estimate, we assume approximately 13 contact events per individual per day. Thus, the average waiting time between contact events is
 \[
 \frac{24}{13}
 \]
-hours. Let $\alpha_{SE}$ be the rate at which the susceptible contact clock rings; since time is measured in days, $\alpha_{SE}=13$, that is, $13/24$ per hour. Therefore, for each susceptible individual $i$ currently on the floor, the time until
+hours. Let $\alpha_{SE}$ be the rate at which the susceptible contact clock rings; since time is measured in hours, $\alpha_{SE}=13/24$ per hour. Therefore, for each susceptible individual $i$ currently on the floor, the time until
 their next contact is
 \[
 T_i^{SE}
@@ -868,8 +864,6 @@ The expected waiting time until the next contact is
 \mathbb{E}\left[T_i^{SE}\right]
 =
 \frac{1}{\alpha_{SE}}
-=
-\frac{1}{13}\text{ days}
 =
 \frac{24}{13}\text{ hours}.
 \]
@@ -889,16 +883,16 @@ T_i^{EI}\sim\operatorname{Exp}(\alpha_{EI}).
 The CDC reports that the estimated incubation period for COVID-19 ranges
 from 2 to 14 days, with a median of approximately 5 days
 \cite{cdcincubation}. We therefore use 5 days as the characteristic
-incubation time in the model.
+incubation time in the model. In hours,
 \[
-\frac{1}{\alpha_{EI}}=5,
+\frac{1}{\alpha_{EI}}=5\cdot 24=120\text{ h},
 \qquad
-\alpha_{EI}=\frac{1}{5}.
+\alpha_{EI}=\frac{1}{120}\text{ h}^{-1}.
 \]
 
 Therefore,
 \[
-T_i^{EI}\sim\operatorname{Exp}\left(\frac{1}{5}\right).
+T_i^{EI}\sim\operatorname{Exp}\left(\frac{1}{120}\right).
 \]
 
 This clock is assigned to every individual in the exposed compartment $E$.
@@ -916,16 +910,16 @@ T_i^{IR}\sim\operatorname{Exp}(\alpha_{IR}).
 The CDC reports that individuals with COVID-19 may be infectious beginning
 1--2 days before symptom onset and for up to 8--10 days after symptoms begin
 \cite{cdcyellowbook}. Motivated by this empirical time scale, we use nine
-days as the characteristic infectious period in the model.
+days as the characteristic infectious period in the model. In hours,
 \[
-\frac{1}{\alpha_{IR}}=9,
+\frac{1}{\alpha_{IR}}=9\cdot 24=216\text{ h},
 \qquad
-\alpha_{IR}=\frac{1}{9}.
+\alpha_{IR}=\frac{1}{216}\text{ h}^{-1}.
 \]
 
 Therefore,
 \[
-T_i^{IR}\sim\operatorname{Exp}\left(\frac{1}{9}\right).
+T_i^{IR}\sim\operatorname{Exp}\left(\frac{1}{216}\right).
 \]
 
 This clock is assigned to every individual in the infectious compartment $I$.
@@ -941,9 +935,9 @@ SARS-CoV-2 infection wanes over time, with confirmed reinfections observed
 among recovered, unvaccinated individuals within the 4--6 month period
 following infection \cite{goldberg2022}. Motivated by this time scale, we
 choose 150 days, or approximately five months, as the characteristic
-waning-immunity time in the model. Thus, with rate $\alpha_{RS}=1/150$,
+waning-immunity time in the model. Since $150\cdot 24=3600$ hours, the rate is $\alpha_{RS}=1/3600\text{ h}^{-1}$ and
 \[
-T_i^{RS} \sim \operatorname{Exp}(\alpha_{RS}) = \operatorname{Exp}\left(\frac{1}{150}\right).
+T_i^{RS} \sim \operatorname{Exp}(\alpha_{RS}) = \operatorname{Exp}\left(\frac{1}{3600}\right).
 \]
 
 This clock is assigned to every individual in the recovered compartment $R$. When this clock rings, individual $i$ moves from the recovered compartment back to the susceptible compartment; the individual's location and behavioral status remain unchanged.
@@ -961,7 +955,7 @@ This clock is assigned to every individual in the recovered compartment $R$. Whe
 
 \begin{table}[H]
 \centering
-\caption{The nine types of Poisson clocks. Mean waiting times are the values stated in the defining subsections; time is measured in days unless hours are indicated.}
+\caption{The nine types of Poisson clocks. Mean waiting times are the values stated in the defining subsections; time is measured in hours, with equivalent values in days given in parentheses where helpful.}
 \label{tab:clocks}
 \footnotesize
 \renewcommand{\arraystretch}{1.35}
@@ -969,16 +963,16 @@ This clock is assigned to every individual in the recovered compartment $R$. Whe
 \toprule
 \textbf{Clock} & \textbf{Active for} & \textbf{Rate} & \textbf{Waiting time} & \textbf{Event} & \textbf{Mean waiting time} \\
 \midrule
-Building-to-building & individuals on the public floor & $\alpha_{BB}$ & $T_i^{BB}$ & Individual $i$ moves from one public building to another & $1/\alpha_{BB}=0.4$ days \\
+Building-to-building & individuals on the public floor & $\alpha_{BB}$ & $T_i^{BB}$ & Individual $i$ moves from one public building to another & $1/\alpha_{BB}=9.6$ h (0.4 days) \\
 Building-to-home & individuals on the public floor & $\alpha_{BH}(Z)$ & $T_i^{BH}$ & Individual $i$ leaves the public floor and returns to their private home & depends on hour of day \\
 Home-to-building & individuals at home & $\alpha_{HB}(Z)$ & $T_i^{HB}$ & Individual $i$ leaves their private home and enters a public building & depends on hour of day \\
 Sun (day--night) & entire system & $\alpha_{\mathrm{sun}}$ & $T^{\mathrm{sun}}$ & Refreshes $\alpha_{BH}$ and $\alpha_{HB}$ from the hourly lookup tables & $1$ h \\
 Susceptible contact & susceptible individuals on the public floor
 %CWang: or you can say S agents
 & $\alpha_{SE}$ & $T_i^{SE}$ & Susceptible individual $i$ has a possible infectious contact & $24/13\approx 1.85$ h \\
-Incubation & exposed individuals & $\alpha_{EI}$ & $T_i^{EI}$ & Exposed individual $i$ becomes infectious ($E\to I$) & $1/\alpha_{EI}=5$ days \\
-Recovery & infectious individuals & $\alpha_{IR}$ & $T_i^{IR}$ & Infectious individual $i$ recovers ($I\to R$) & $9$ days \\
-Waning immunity & recovered individuals & $\alpha_{RS}$ & $T_i^{RS}$ & Recovered individual $i$ becomes susceptible again ($R\to S$) & $150$ days \\
+Incubation & exposed individuals & $\alpha_{EI}$ & $T_i^{EI}$ & Exposed individual $i$ becomes infectious ($E\to I$) & $1/\alpha_{EI}=120$ h (5 days) \\
+Recovery & infectious individuals & $\alpha_{IR}$ & $T_i^{IR}$ & Infectious individual $i$ recovers ($I\to R$) & $216$ h (9 days) \\
+Waning immunity & recovered individuals & $\alpha_{RS}$ & $T_i^{RS}$ & Recovered individual $i$ becomes susceptible again ($R\to S$) & $3600$ h (150 days) \\
 Government & entire system & $\alpha_G(G(t))$ & $T^{G}$ & Recalculates $P_G(t)$ and updates the mandate level $G(t)$ & depends on $G(t)$ \\
 \bottomrule
 \end{tabularx}
@@ -1110,7 +1104,7 @@ This means the government begins in the lowest mandate state. Since the governme
 rate depends on the current mandate level, the initial government clock rate is determined
 by the value of $G(0)$ through \eqref{eq:govrate}. Since $G(0)=0$, the initial government clock rate is
 \[
-\alpha_G(G(0))=\alpha_G(0)=\frac{1}{7}.
+\alpha_G(G(0))=\alpha_G(0)=\frac{1}{168}\text{ h}^{-1}.
 \]
 
 
@@ -1126,7 +1120,7 @@ A number $I_0$ of individuals, chosen uniformly at random, are infectious at $t=
 
 \subsubsection{Financial Burden Initialization}
 
-The income quartile boundaries are an input of the simulation, chosen for the city or region being modeled, and 25 percent of the population $M$ falls in each quartile. The value of $F_i$ therefore varies across individuals such that a quarter of the population is in each bracket.
+Each individual's income $Y_i$ is drawn independently from a normal distribution with mean $\mu_Y$ and standard deviation $\sigma_Y$, which are inputs of the simulation, and then rounded to the nearest integer. The quartile boundaries $Q_{25}$, $Q_{50}$, and $Q_{75}$ are computed from the realized sample of $M$ incomes, so that approximately 25 percent of the population falls in each quartile. The value of $F_i$ therefore varies across individuals such that a quarter of the population is in each bracket.
 
 \subsection{Algorithm Summary}
 \label{sec:algorithm}
@@ -1145,7 +1139,7 @@ In this section we present simulation results of the model. All simulations use 
 \subsection{Simulation Setup and Parameters}
 \label{sec:setup}
 
-Unless stated otherwise, every experiment uses the parameter values listed in \Cref{tab:params}. Time is measured in days. The population size $M$, the number of public buildings $K$, the number of initially infectious individuals $I_0$, the final time $T_{\max}$, and the income distribution used to assign the financial burden $F_i$ are experiment-specific and are stated with each experiment.
+Unless stated otherwise, every experiment uses the parameter values listed in \Cref{tab:params}. Time is measured in hours. The population size $M$, the number of public buildings $K$, the number of initially infectious individuals $I_0$, the final time $T_{\max}$, and the income distribution used to assign the financial burden $F_i$ are experiment-specific and are stated with each experiment.
 
 \begin{table}[H]
 \centering
@@ -1160,16 +1154,16 @@ Unless stated otherwise, every experiment uses the parameter values listed in \C
 $M$ & population size & experiment-specific & \Cref{sec:population} \\
 $K$ & number of public buildings & experiment-specific & \Cref{sec:graph} \\
 $I_0$ & initially infectious individuals & experiment-specific & \Cref{sec:init} \\
-$T_{\max}$ & final simulation time (days) & experiment-specific & \Cref{sec:init} \\
-$\alpha_{BB}$ & building-to-building movement rate & $2.5$ day$^{-1}$ & \Cref{sec:btb} \\
+$T_{\max}$ & final simulation time (hours) & experiment-specific & \Cref{sec:init} \\
+$\alpha_{BB}$ & building-to-building movement rate & $1/9.6$ h$^{-1}$ & \Cref{sec:btb} \\
 $\alpha_{BH}(h)$ & building-to-home rate at hour $h$ & hourly lookup table & \Cref{sec:sun} \\
 $\alpha_{HB}(h)$ & home-to-building rate at hour $h$ & hourly lookup table & \Cref{sec:sun} \\
-$\alpha_{\mathrm{sun}}$ & sun-clock update rate & $24$ day$^{-1}$ ($1$ h$^{-1}$) & \Cref{sec:sun} \\
-$\alpha_{SE}$ & susceptible contact rate & $13$ day$^{-1}$ (one contact per $24/13$ h) & \Cref{sec:sus} \\
-$\alpha_{EI}$ & exposed-to-infectious rate & $1/5$ day$^{-1}$ & \Cref{sec:ei} \\
-$\alpha_{IR}$ & infectious-to-recovered rate & $1/9$ day$^{-1}$ & \Cref{sec:ir} \\
-$\alpha_{RS}$ & recovered-to-susceptible rate & $1/150$ day$^{-1}$ & \Cref{sec:rs} \\
-$\alpha_G(G)$ & government review rate, $G=0,1,2,3$ & $1/7,\ 1/5,\ 1/3,\ 1$ day$^{-1}$ & \Cref{sec:govclock} \\
+$\alpha_{\mathrm{sun}}$ & sun-clock update rate & $1$ h$^{-1}$ & \Cref{sec:sun} \\
+$\alpha_{SE}$ & susceptible contact rate & $13/24$ h$^{-1}$ (one contact event per $24/13$ h) & \Cref{sec:sus} \\
+$\alpha_{EI}$ & exposed-to-infectious rate & $1/120$ h$^{-1}$ & \Cref{sec:ei} \\
+$\alpha_{IR}$ & infectious-to-recovered rate & $1/216$ h$^{-1}$ & \Cref{sec:ir} \\
+$\alpha_{RS}$ & recovered-to-susceptible rate & $1/3600$ h$^{-1}$ & \Cref{sec:rs} \\
+$\alpha_G(G)$ & government review rate, $G=0,1,2,3$ & $1/168,\ 1/120,\ 1/72,\ 1/24$ h$^{-1}$ & \Cref{sec:govclock} \\
 $P_G$ thresholds & mandate levels $0/1/2/3$ & $10^{-4},\ 2\times 10^{-4},\ 1.5\times 10^{-3}$ (under testing) & \Cref{sec:mandate} \\
 $F_i$ & financial burden by income quartile & $1,\ 0.67,\ 0.33,\ 0$ & \Cref{sec:fin} \\
 $\lambda$ & logit noise factor & $1$ & \Cref{sec:logit} \\
