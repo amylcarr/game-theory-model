@@ -14,6 +14,7 @@ from simulation_sun_clock import CandyLand as SunClockCandyLand
 PROJECT_DIR = Path(__file__).resolve().parent
 DEFAULT_PLOT = PROJECT_DIR / "simulation_plots.png"
 DEFAULT_DESCRIPTION = PROJECT_DIR / "simulation_description.txt"
+R_COLUMNS = ("r_mean_cases", "r_household_cases", "r_community_cases")
 
 
 def run_simulation(
@@ -26,6 +27,7 @@ def run_simulation(
     sample_interval: float,
     seed: int,
     output_file: Path,
+    r_bin_hours: float = 24.0,
 ) -> object:
     model_class = (
         SunClockCandyLand
@@ -50,6 +52,9 @@ def run_simulation(
     model.run(duration, sample_interval, str(output_file))
     stop = time.perf_counter()
     model.validate()
+    if hasattr(model, "reproduction_summary"):
+        # Appends the reproduction-number columns to the simulation CSV.
+        model.reproduction_summary(r_bin_hours, str(output_file))
     counts = model.health_counts()
 
     print(f"simulation_seconds={stop - start:.6f}")
@@ -75,7 +80,12 @@ def read_history(csv_file: Path) -> dict[str, list]:
         "floor_complying_percent": [],
     }
     with csv_file.open(newline="") as file:
-        for row in csv.DictReader(file):
+        reader = csv.DictReader(file)
+        has_reproduction = all(key in (reader.fieldnames or []) for key in R_COLUMNS)
+        if has_reproduction:
+            for key in R_COLUMNS:
+                history[key] = []
+        for row in reader:
             history["time"].append(float(row["time"]))
             for key in ("s", "e", "i", "r", "mandate", "complying"):
                 history[key].append(int(row[key]))
@@ -83,6 +93,9 @@ def read_history(csv_file: Path) -> dict[str, list]:
             history["floor_complying_percent"].append(
                 float(row["floor_complying_percent"])
             )
+            if has_reproduction:
+                for key in R_COLUMNS:
+                    history[key].append(float(row[key]))
     return history
 
 
@@ -131,7 +144,16 @@ Comments:
 
 
 def plot_history(history: dict[str, list], output_file: Path) -> None:
-    figure, axes = plt.subplots(2, 3, figsize=(15, 8), sharex=True)
+    has_reproduction = "r_mean_cases" in history
+    figure = plt.figure(figsize=(15, 12 if has_reproduction else 8))
+    grid = figure.add_gridspec(3 if has_reproduction else 2, 3)
+    axes = []
+    for index in range(6):
+        axes.append(
+            figure.add_subplot(
+                grid[index // 3, index % 3], sharex=axes[0] if axes else None
+            )
+        )
     times = history["time"]
     plots = (
         ("s", "Susceptible", "royalblue"),
@@ -142,7 +164,7 @@ def plot_history(history: dict[str, list], output_file: Path) -> None:
         ("floor_complying_percent", "Complying on Public Floor (%)", "teal"),
     )
 
-    for axis, (key, title, color) in zip(axes.flat, plots):
+    for axis, (key, title, color) in zip(axes, plots):
         if key == "mandate":
             axis.step(times, history[key], where="post", color=color)
             axis.set_yticks(range(4))
@@ -152,6 +174,39 @@ def plot_history(history: dict[str, list], output_file: Path) -> None:
         axis.set_title(title)
         axis.set_xlabel("Time (hours)")
         axis.set_ylabel(title)
+        axis.grid(alpha=0.3)
+
+    if has_reproduction:
+        # Each point is the mean secondary cases of infectors who became
+        # infectious in that time bin, so it is a cohort R rather than a
+        # point-in-time value. Bins with no finished infectors are NaN (gaps).
+        axis = figure.add_subplot(grid[2, :], sharex=axes[0])
+        axis.step(
+            times,
+            history["r_mean_cases"],
+            where="post",
+            color="black",
+            label="Total R",
+        )
+        axis.step(
+            times,
+            history["r_household_cases"],
+            where="post",
+            color="darkorange",
+            label="Household",
+        )
+        axis.step(
+            times,
+            history["r_community_cases"],
+            where="post",
+            color="royalblue",
+            label="Community (public floor)",
+        )
+        axis.axhline(1.0, color="gray", linestyle="--", linewidth=1)
+        axis.set_title("Reproduction Number by Infectious Onset Time")
+        axis.set_xlabel("Onset time (hours)")
+        axis.set_ylabel("Mean secondary cases")
+        axis.legend()
         axis.grid(alpha=0.3)
 
     figure.suptitle("Candy Land Epidemic Simulation")
@@ -174,6 +229,9 @@ def main() -> None:
     parser.add_argument("--duration", type=float, default=1_008)
     parser.add_argument("--sample-interval", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument(
+        "--r-bin-hours", type=float, default=24.0, help="Onset-time bin width for R"
+    )
     parser.add_argument("--plot", type=Path, default=DEFAULT_PLOT)
     parser.add_argument("--description", type=Path, default=DEFAULT_DESCRIPTION)
     args = parser.parse_args()
@@ -188,6 +246,7 @@ def main() -> None:
         args.sample_interval,
         args.seed,
         args.csv,
+        args.r_bin_hours,
     )
     history = read_history(args.csv)
     analyze_history(history)

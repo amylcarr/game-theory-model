@@ -105,8 +105,14 @@ class CandyLand:
         self.num_interactions = 0  # scalar: count of susceptible-floor contact interactions attempted
         self.num_s_to_e_infections = 0  # scalar: count of those interactions that resulted in an infection
         self.num_household_infections = 0  # scalar: count of exposures caused by a household member becoming infectious
+        # Infectious episodes, one entry per time an agent becomes infectious
+        # (an agent reinfected after waning immunity starts a new episode).
+        self.episode_onset: list[float] = []  # list[episode] -> onset time
+        self.episode_end: list[float] = []  # list[episode] -> recovery time, or nan while infectious
+        self.episode_household_cases: list[int] = []  # list[episode] -> household exposures caused
+        self.episode_community_cases: list[int] = []  # list[episode] -> floor exposures caused
         self.mandate_level = 0  # scalar: government mandate intensity (0–3)
-        self.lambda_logit = 4.0  # scalar: logit sensitivity for compliance choice
+        self.lambda_logit = 2.0  # scalar: logit sensitivity for compliance choice
         clock_path = (
             Path(sun_clock_file)
             if sun_clock_file is not None
@@ -121,6 +127,9 @@ class CandyLand:
         self.rng = np.random.default_rng(
             seed
         )  # random number generator (not agent/building data)
+        # Separate stream for infector attribution so that R tracking never
+        # changes the main simulation's random draws for a given seed.
+        self._attribution_rng = np.random.default_rng([seed, 1])
 
         # Array/list indexed by agent id, unless noted otherwise.
         # on_floor is partitioned in-place: floor agents first, home agents second.
@@ -176,7 +185,10 @@ class CandyLand:
                     population, -1, dtype=int
         ) # array[agent] -> household id
         self.households : list[list[int]] = [] # list[household_id] -> list of members within house
-        
+        self.current_episode = np.full(
+            population, -1, dtype=int
+        )  # array[agent] -> index of that agent's current/latest infectious episode
+
         self._initialize_households()
         self._initialize_incomes(avg_income, std_income)
         self.income_quartiles = np.array_split(
@@ -190,10 +202,14 @@ class CandyLand:
         # Seed initial household propagation
         for agent in range(self.population):
             if self.health[agent] == INFECTIOUS:
+                self._start_episode(agent)
+        for agent in range(self.population):
+            if self.health[agent] == INFECTIOUS:
                 for household_member in self.households[self.household_id[agent]]:
                     if household_member != agent and self.health[household_member] == SUSCEPTIBLE:
                         self.health[household_member] = EXPOSED
                         self.num_household_infections += 1
+                        self.episode_household_cases[self.current_episode[agent]] += 1
         
 
         # list[health_state] -> list of agent ids currently in that SEIR state
@@ -494,6 +510,83 @@ class CandyLand:
         self.building_positions[agent] = -1
         self.locations[agent] = -1
 
+    # ----- Reproduction number tracking -----
+
+    def _start_episode(self, agent: int) -> int:
+        episode = len(self.episode_onset)
+        self.episode_onset.append(self.time)
+        self.episode_end.append(math.nan)
+        self.episode_household_cases.append(0)
+        self.episode_community_cases.append(0)
+        self.current_episode[agent] = episode
+        return episode
+
+    # Community infections have no explicit infector, so credit one infectious
+    # occupant chosen uniformly; each adds equally to the building's exposure.
+    def _credit_community_infector(self, building: int) -> None:
+        infectors = [
+            member
+            for member in self.buildings[building]
+            if self.health[member] == INFECTIOUS
+        ]
+        if infectors:
+            infector = infectors[int(self._attribution_rng.integers(len(infectors)))]
+            self.episode_community_cases[self.current_episode[infector]] += 1
+
+    def reproduction_summary(self, bin_hours: float, output_file: str) -> None:
+        """Mean secondary cases per infectious episode, grouped by onset time.
+
+        Only finished episodes are averaged so that infectors still infectious
+        (whose offspring counts are incomplete) do not bias the estimate.
+        """
+        if bin_hours <= 0.0:
+            raise ValueError("R bin width must be positive")
+        onset = np.asarray(self.episode_onset)
+        finished = ~np.isnan(np.asarray(self.episode_end))
+        household = np.asarray(self.episode_household_cases)
+        community = np.asarray(self.episode_community_cases)
+        bins = (onset // bin_hours).astype(int)
+
+        seed = finished & (onset == 0.0)
+        if seed.any():
+            print(
+                f"r0_seed_cohort={float((household + community)[seed].mean()):.4f} "
+                f"(household={float(household[seed].mean()):.4f}, "
+                f"community={float(community[seed].mean()):.4f}, n={int(seed.sum())})"
+            )
+
+        if output_file == "none":
+            return
+
+        # Append per-onset-bin R columns to the time-series CSV: each row gets the
+        # R of the infectious episodes that began in the same time bin as the row.
+        with open(output_file, newline="", encoding="utf-8") as source:
+            rows = list(csv.reader(source))
+        header, data = rows[0], rows[1:]
+        r_columns = [
+            "r_onset_finished",
+            "r_onset_unfinished",
+            "r_mean_cases",
+            "r_household_cases",
+            "r_community_cases",
+        ]
+        with open(output_file, "w", newline="", encoding="utf-8") as output:
+            writer = csv.writer(output, lineterminator="\n")
+            writer.writerow(header + r_columns)
+            for row in data:
+                b = int(float(row[0]) // bin_hours)
+                in_bin = bins == b
+                done = in_bin & finished
+                count = int(done.sum())
+                if count:
+                    means = [
+                        f"{float(values[done].mean()):.6g}"
+                        for values in (household + community, household, community)
+                    ]
+                else:
+                    means = ["nan"] * 3
+                writer.writerow(row + [count, int((in_bin & ~finished).sum())] + means)
+
     # Move one agent between disease stages using swap-with-last removal.
     def _change_health(self, agent: int, new_health: int) -> None:
         old_health = int(self.health[agent])
@@ -504,10 +597,14 @@ class CandyLand:
             self._remove_susceptible_floor(agent)
 
         if new_health == INFECTIOUS:
+            episode = self._start_episode(agent)
             for member in self.households[self.household_id[agent]]:
                 if member != agent and self.health[member] == SUSCEPTIBLE:
                     self._change_health(member, EXPOSED)
                     self.num_household_infections += 1
+                    self.episode_household_cases[episode] += 1
+        elif old_health == INFECTIOUS:
+            self.episode_end[self.current_episode[agent]] = self.time
 
         old_group = self.health_groups[old_health]
         old_position = int(self.health_positions[agent])
@@ -678,6 +775,7 @@ class CandyLand:
             exponent /= 2.0
         exposure_probability = 1.0 - math.exp(-exponent)
         if self._uniform_probability() < exposure_probability:
+            self._credit_community_infector(building)
             self._change_health(agent, EXPOSED)
             self.num_s_to_e_infections += 1
 
@@ -797,6 +895,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Hourly Sun Clock CSV; defaults to sun_clock_leave_probability.csv",
     )
     parser.add_argument(
+        "--r-bin-hours", type=float, default=24.0, help="Onset-time bin width for R"
+    )
+    parser.add_argument(
         "--output-file",
         default="simulation.csv",
         help='CSV path, or "none" to skip writing',
@@ -834,6 +935,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"total_interactions={model.num_interactions_total()}")
         print(f"infections_from_interactions={model.num_infections_from_interactions()}")
         print(f"infections_from_households={model.num_infections_from_households()}")
+        model.reproduction_summary(args.r_bin_hours, args.output_file)
         return 0
     except Exception as error:
         print(f"Error: {error}", file=sys.stderr)
