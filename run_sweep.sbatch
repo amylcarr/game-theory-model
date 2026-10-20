@@ -9,6 +9,8 @@
 #SBATCH --mem=2G
 #SBATCH --array=0-109%30              # at most 30 tasks at once
 #SBATCH --output=logs/%x_%A_%a.out
+#SBATCH --account=alcarr2
+#SBATCH --qos=main
 
 set -euo pipefail
 
