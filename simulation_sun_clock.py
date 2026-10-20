@@ -112,7 +112,7 @@ class CandyLand:
         self.episode_household_cases: list[int] = []  # list[episode] -> household exposures caused
         self.episode_community_cases: list[int] = []  # list[episode] -> floor exposures caused
         self.mandate_level = 0  # scalar: government mandate intensity (0–3)
-        self.lambda_logit = 2.0  # scalar: logit sensitivity for compliance choice
+        self.lambda_logit = 1.0  # scalar: logit sensitivity for compliance choice
         clock_path = (
             Path(sun_clock_file)
             if sun_clock_file is not None
@@ -890,6 +890,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--sample-interval", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument(
+        "--lambda-logit",
+        type=float,
+        default=None,
+        help="Logit sensitivity for the compliance choice (default: model's value)",
+    )
+    parser.add_argument(
         "--sun-clock-file",
         default=None,
         help="Hourly Sun Clock CSV; defaults to sun_clock_leave_probability.csv",
@@ -918,6 +924,9 @@ def main(argv: list[str] | None = None) -> int:
             args.seed,
             args.sun_clock_file,
         )
+        if args.lambda_logit is not None:
+            model.lambda_logit = args.lambda_logit
+        print(f"lambda_logit={model.lambda_logit}")
 
         start = time.perf_counter()
         model.run(args.duration, args.sample_interval, args.output_file)

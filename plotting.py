@@ -28,6 +28,7 @@ def run_simulation(
     seed: int,
     output_file: Path,
     r_bin_hours: float = 24.0,
+    lambda_logit: float | None = None,
 ) -> object:
     model_class = (
         SunClockCandyLand
@@ -48,6 +49,10 @@ def run_simulation(
         )
     else:
         model = model_class(*model_arguments)
+    if lambda_logit is not None:
+        # Overrides the model's default logit sensitivity (read only at run time).
+        model.lambda_logit = lambda_logit
+    print(f"lambda_logit={model.lambda_logit}")
     start = time.perf_counter()
     model.run(duration, sample_interval, str(output_file))
     stop = time.perf_counter()
@@ -123,6 +128,7 @@ def write_description(
     duration: float,
     sample_interval: float,
     seed: int,
+    lambda_logit: float,
 ) -> None:
     content = f"""Date ran: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
@@ -135,6 +141,7 @@ Parameters:
   --avg-income      {avg_income}
   --std-income      {std_income}
   --sample-interval {sample_interval}
+  --lambda-logit    {lambda_logit}
 
 Comments:
   (Write your notes here. What did you change? What did you notice?)
@@ -143,10 +150,12 @@ Comments:
     print(f"Wrote description file: {output_file}")
 
 
-def plot_history(history: dict[str, list], output_file: Path) -> None:
+def plot_history(
+    history: dict[str, list], output_file: Path, reproduction_file: Path
+) -> None:
     has_reproduction = "r_mean_cases" in history
-    figure = plt.figure(figsize=(15, 12 if has_reproduction else 8))
-    grid = figure.add_gridspec(3 if has_reproduction else 2, 3)
+    figure = plt.figure(figsize=(15, 8))
+    grid = figure.add_gridspec(2, 3)
     axes = []
     for index in range(6):
         axes.append(
@@ -176,11 +185,16 @@ def plot_history(history: dict[str, list], output_file: Path) -> None:
         axis.set_ylabel(title)
         axis.grid(alpha=0.3)
 
+    figure.suptitle("Candy Land Epidemic Simulation")
+    figure.tight_layout()
+    figure.savefig(output_file, dpi=150)
+    print(f"Wrote plot: {output_file}")
+
     if has_reproduction:
         # Each point is the mean secondary cases of infectors who became
         # infectious in that time bin, so it is a cohort R rather than a
         # point-in-time value. Bins with no finished infectors are NaN (gaps).
-        axis = figure.add_subplot(grid[2, :], sharex=axes[0])
+        r_figure, axis = plt.subplots(figsize=(10, 5))
         axis.step(
             times,
             history["r_mean_cases"],
@@ -208,11 +222,10 @@ def plot_history(history: dict[str, list], output_file: Path) -> None:
         axis.set_ylabel("Mean secondary cases")
         axis.legend()
         axis.grid(alpha=0.3)
+        r_figure.tight_layout()
+        r_figure.savefig(reproduction_file, dpi=150)
+        print(f"Wrote plot: {reproduction_file}")
 
-    figure.suptitle("Candy Land Epidemic Simulation")
-    figure.tight_layout()
-    figure.savefig(output_file, dpi=150)
-    print(f"Wrote plot: {output_file}")
     plt.show()
 
 
@@ -230,9 +243,21 @@ def main() -> None:
     parser.add_argument("--sample-interval", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument(
+        "--lambda-logit",
+        type=float,
+        default=None,
+        help="Logit sensitivity for the compliance choice (default: model's value)",
+    )
+    parser.add_argument(
         "--r-bin-hours", type=float, default=24.0, help="Onset-time bin width for R"
     )
     parser.add_argument("--plot", type=Path, default=DEFAULT_PLOT)
+    parser.add_argument(
+        "--r-plot",
+        type=Path,
+        default=None,
+        help="Output for the reproduction-number figure (default: <plot>_reproduction.png)",
+    )
     parser.add_argument("--description", type=Path, default=DEFAULT_DESCRIPTION)
     args = parser.parse_args()
 
@@ -247,6 +272,7 @@ def main() -> None:
         args.seed,
         args.csv,
         args.r_bin_hours,
+        args.lambda_logit,
     )
     history = read_history(args.csv)
     analyze_history(history)
@@ -260,8 +286,12 @@ def main() -> None:
         args.duration,
         args.sample_interval,
         args.seed,
+        model.lambda_logit,
     )
-    plot_history(history, args.plot)
+    r_plot = args.r_plot or args.plot.with_name(
+        f"{args.plot.stem}_reproduction{args.plot.suffix}"
+    )
+    plot_history(history, args.plot, r_plot)
 
 
 if __name__ == "__main__":
