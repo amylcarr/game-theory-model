@@ -195,22 +195,32 @@ class CandyLand:
             np.argsort(self.incomes, kind="stable"), 4
         )
 
-        # Start with everyone susceptible, then infect a random initial subset.
-        self.health[:num_infected] = INFECTIOUS
-        self.rng.shuffle(self.health)
+        # Start with everyone susceptible, then seed index cases one at a time.
+        # Each index case is infectious and exposes their household, so
+        # num_infected is the total seeded (infectious + exposed). Households
+        # too large to fit in the remaining count are skipped.
+        remaining = num_infected
+        for agent in self.rng.permutation(self.population):
+            if remaining == 0:
+                break
+            if self.health[agent] != SUSCEPTIBLE:
+                continue
+            household = self.households[self.household_id[agent]]
+            if len(household) > remaining:
+                continue
+            self.health[agent] = INFECTIOUS
+            episode = self._start_episode(agent)
+            for household_member in household:
+                if household_member != agent:
+                    self.health[household_member] = EXPOSED
+                    self.num_household_infections += 1
+                    self.episode_household_cases[episode] += 1
+            remaining -= len(household)
+        if remaining > 0:
+            raise ValueError(
+                "Could not seed exactly num_infected agents with whole households"
+            )
 
-        # Seed initial household propagation
-        for agent in range(self.population):
-            if self.health[agent] == INFECTIOUS:
-                self._start_episode(agent)
-        for agent in range(self.population):
-            if self.health[agent] == INFECTIOUS:
-                for household_member in self.households[self.household_id[agent]]:
-                    if household_member != agent and self.health[household_member] == SUSCEPTIBLE:
-                        self.health[household_member] = EXPOSED
-                        self.num_household_infections += 1
-                        self.episode_household_cases[self.current_episode[agent]] += 1
-        
 
         # list[health_state] -> list of agent ids currently in that SEIR state
         self.health_groups: list[list[int]] = [[] for _ in range(NUM_HEALTH_STATES)]
