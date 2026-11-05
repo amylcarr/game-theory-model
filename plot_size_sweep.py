@@ -24,7 +24,9 @@ def load(results_dir: Path) -> dict:
     for file in results_dir.glob("pop_*/init_*/seed_*.csv"):
         pop = int(file.parent.parent.name.removeprefix("pop_"))
         pct = float(file.parent.name.removeprefix("init_"))
-        data.setdefault(pct, {}).setdefault(pop, []).append(summarize_run(file))
+        data.setdefault(pct, {}).setdefault(pop, []).append(
+            summarize_run(file, pop)
+        )
     return {p: dict(sorted(d.items())) for p, d in sorted(data.items())}
 
 
