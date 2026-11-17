@@ -2,10 +2,10 @@
 
 Reads results_ic/lambda_<L>/init_<P>/seed_<n>.csv (from run_ic_sweep.sbatch).
 Per run: peak = max of the raw infectious fraction; peak time = when it occurs.
-A run is "extinct" if its peak infectious count never exceeds the initially
-seeded count (infectious + exposed at t=0), i.e. no transmission-driven growth.
-Across seeds we report means over all runs and over non-extinct runs only
-(peak time is only meaningful for non-extinct runs).
+A run "takes off" if its infectious peak reaches TAKEOFF_PCT of the population
+(runs that stall at a low plateau never do). Time to take-off is the first time
+the infectious fraction crosses that level. Across seeds we report means over
+all runs and over take-off runs only (peak/take-off times need a take-off).
 """
 
 from __future__ import annotations
@@ -21,20 +21,29 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def summarize_run(csv_file: Path, population: int) -> dict:
-    time, i, seeded = [], [], None
+TAKEOFF_PCT = 5.0  # infectious peak (% of population) that counts as an outbreak
+
+
+def summarize_run(
+    csv_file: Path, population: int | None = None, takeoff_pct: float = TAKEOFF_PCT
+) -> dict:
+    """population defaults to s+e+i+r at t=0, so runs of different sizes mix safely."""
+    time, i = [], []
     with csv_file.open(newline="") as file:
         for row in csv.DictReader(file):
             time.append(float(row["time"]))
             i.append(float(row["i"]))
-            if seeded is None:
-                seeded = float(row["i"]) + float(row["e"])
+            if population is None:
+                population = round(sum(float(row[k]) for k in "seir"))
     i = np.array(i)
     k = int(i.argmax())
+    peak_pct = 100.0 * i[k] / population
+    crossed = np.nonzero(100.0 * i / population >= takeoff_pct)[0]
     return {
-        "peak_pct": 100.0 * i[k] / population,
+        "peak_pct": peak_pct,
         "peak_time": time[k],
-        "extinct": bool(i[k] <= seeded),
+        "extinct": bool(peak_pct < takeoff_pct),  # i.e. no take-off
+        "takeoff_time": time[int(crossed[0])] if len(crossed) else float("nan"),
     }
 
 
@@ -74,7 +83,7 @@ def main() -> None:
         writer = csv.writer(file)
         writer.writerow(
             ["lambda", "init_pct", "n_runs", "extinct_frac", "peak_pct_all",
-             "peak_pct_nonextinct", "peak_time_nonextinct"]
+             "peak_pct_nonextinct", "peak_time_nonextinct", "takeoff_time"]
         )
         for lam, by_pct in data.items():
             for pct, runs in by_pct.items():
@@ -85,16 +94,18 @@ def main() -> None:
                     stats([r["peak_pct"] for r in runs])[0],
                     stats([r["peak_pct"] for r in live])[0],
                     stats([r["peak_time"] for r in live])[0],
+                    stats([r["takeoff_time"] for r in live])[0],
                 ])
 
     panels = [
         ("peak_pct", False, "Peak infectious (% of population), all runs"),
-        ("peak_pct", True, "Peak infectious (%), non-extinct runs"),
-        ("peak_time", True, "Peak time (hours), non-extinct runs"),
-        ("extinct", False, "Fraction of runs with no outbreak"),
+        ("peak_pct", True, "Peak infectious (%), take-off runs"),
+        ("peak_time", True, "Peak time (hours), take-off runs"),
+        ("extinct", False, "Fraction of runs with no take-off"),
+        ("takeoff_time", True, "Time to take-off (hours), take-off runs"),
     ]
     colormap = plt.get_cmap("viridis")
-    figure, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+    figure, axes = plt.subplots(2, 3, figsize=(17, 8), sharex=True)
     for axis, (key, live_only, label) in zip(axes.ravel(), panels):
         for index, (lam, by_pct) in enumerate(data.items()):
             xs, ys, errs = [], [], []
@@ -108,7 +119,8 @@ def main() -> None:
             )
         axis.set_ylabel(label)
         axis.grid(alpha=0.3)
-    for axis in axes[1]:
+    axes[1, 2].set_visible(False)
+    for axis in axes[1, :2]:
         axis.set_xlabel("Initially infected (% of population)")
     axes[0, 0].legend(title=r"$\lambda$", fontsize=8)
     figure.suptitle("Mean across seeds (error bars: SEM)")

@@ -1,7 +1,8 @@
 """Population-size sweep: peak infectious %, peak time and extinction vs. population.
 
 Reads results_size/pop_<N>/init_<P>/seed_<n>.csv (from run_size_sweep.sbatch).
-One line per initial-infected %. Run definitions match plot_ic_sweep.py.
+One line per initial-infected %. A run "takes off" if its infectious peak reaches TAKEOFF_PCT (5%) of the
+population, as in plot_ic_sweep.py.
 """
 
 from __future__ import annotations
@@ -44,7 +45,8 @@ def main() -> None:
     with (args.output_dir / "summary.csv").open("w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["init_pct", "population", "n_runs", "extinct_frac",
-                         "peak_pct_all", "peak_pct_nonextinct", "peak_time_nonextinct"])
+                         "peak_pct_all", "peak_pct_nonextinct", "peak_time_nonextinct",
+                         "takeoff_time"])
         for pct, by_pop in data.items():
             for pop, runs in by_pop.items():
                 live = [r for r in runs if not r["extinct"]]
@@ -54,16 +56,18 @@ def main() -> None:
                     stats([r["peak_pct"] for r in runs])[0],
                     stats([r["peak_pct"] for r in live])[0],
                     stats([r["peak_time"] for r in live])[0],
+                    stats([r["takeoff_time"] for r in live])[0],
                 ])
 
     panels = [
         ("peak_pct", False, "Peak infectious (% of population), all runs"),
-        ("peak_pct", True, "Peak infectious (%), non-extinct runs"),
-        ("peak_time", True, "Peak time (hours), non-extinct runs"),
-        ("extinct", False, "Fraction of runs with no outbreak"),
+        ("peak_pct", True, "Peak infectious (%), take-off runs"),
+        ("peak_time", True, "Peak time (hours), take-off runs"),
+        ("extinct", False, "Fraction of runs with no take-off"),
+        ("takeoff_time", True, "Time to take-off (hours), take-off runs"),
     ]
     colormap = plt.get_cmap("viridis")
-    figure, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+    figure, axes = plt.subplots(2, 3, figsize=(17, 8), sharex=True)
     for axis, (key, live_only, label) in zip(axes.ravel(), panels):
         for index, (pct, by_pop) in enumerate(data.items()):
             xs, ys, errs = [], [], []
@@ -77,7 +81,8 @@ def main() -> None:
         axis.set_xscale("log")
         axis.set_ylabel(label)
         axis.grid(alpha=0.3)
-    for axis in axes[1]:
+    axes[1, 2].set_visible(False)
+    for axis in axes[1, :2]:
         axis.set_xlabel("Population size (log scale)")
     axes[0, 0].legend(title="Initially infected", fontsize=8)
     figure.suptitle("Mean across seeds (error bars: SEM)")
